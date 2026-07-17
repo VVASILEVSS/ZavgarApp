@@ -28,9 +28,10 @@ from zavgar_app.ui.theme import add_shadow
 class VehicleDialog(QDialog):
     """Диалог добавления/редактирования авто."""
 
-    def __init__(self, vehicle: Optional[Vehicle] = None, parent=None):
+    def __init__(self, vehicle: Optional[Vehicle] = None, conn=None, parent=None):
         super().__init__(parent)
         self.vehicle = vehicle
+        self.conn = conn
         self.setWindowTitle('Добавить авто' if not vehicle else 'Редактировать авто')
         self.setMinimumWidth(480)
         self.setMinimumHeight(400)
@@ -77,6 +78,14 @@ class VehicleDialog(QDialog):
         self.status_combo.addItems(['Активен', 'На ремонте', 'Списан'])
         form.addRow('Статус:', self.status_combo)
 
+        # Водитель
+        self.driver_combo = QComboBox()
+        self.driver_combo.addItem('— Не назначен —', None)
+        drivers = db.list_drivers(self.conn) if hasattr(self, 'conn') else []
+        for d in drivers:
+            self.driver_combo.addItem(d.fio, d.id)
+        form.addRow('Водитель:', self.driver_combo)
+
         self.notes_input = QTextEdit()
         self.notes_input.setPlaceholderText('Заметки...')
         self.notes_input.setMaximumHeight(80)
@@ -116,6 +125,12 @@ class VehicleDialog(QDialog):
             status_map = {'active': 0, 'repair': 1, 'scrapped': 2}
             self.status_combo.setCurrentIndex(status_map.get(vehicle.status, 0))
 
+            # Выбрать водителя
+            if vehicle.assigned_driver_id:
+                idx = self.driver_combo.findData(vehicle.assigned_driver_id)
+                if idx >= 0:
+                    self.driver_combo.setCurrentIndex(idx)
+
     def get_vehicle(self) -> Vehicle:
         """Собрать данные из формы."""
         type_map = {0: 'car', 1: 'truck', 2: 'special', 3: 'bus'}
@@ -133,6 +148,7 @@ class VehicleDialog(QDialog):
             vehicle_type=type_map.get(self.type_combo.currentIndex(), 'car'),
             status=status_map.get(self.status_combo.currentIndex(), 'active'),
             current_mileage=self.mileage_input.value(),
+            assigned_driver_id=self.driver_combo.currentData(),
             notes=self.notes_input.toPlainText().strip() or None,
             created_at=self.vehicle.created_at if self.vehicle else now,
             updated_at=now,
@@ -194,13 +210,13 @@ class VehiclesPage(QWidget):
 
         # Таблица
         self.table = QTableWidget()
-        self.table.setColumnCount(7)
+        self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels([
-            'Марка/Модель', 'Год', 'Госномер', 'Тип', 'Пробег', 'Статус', 'ID'
+            'Марка/Модель', 'Год', 'Госномер', 'Тип', 'Пробег', 'Водитель', 'Статус', 'ID'
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Fixed)
-        self.table.setColumnWidth(6, 40)  # ID скрыт
+        self.table.horizontalHeader().setSectionResizeMode(7, QHeaderView.Fixed)
+        self.table.setColumnWidth(7, 40)  # ID скрыт
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.table.setAlternatingRowColors(True)
@@ -216,6 +232,7 @@ class VehiclesPage(QWidget):
     def refresh(self):
         """Перезагрузить данные."""
         vehicles = db.list_vehicles(self.conn)
+        drivers = {d.id: d.fio for d in db.list_drivers(self.conn)}
         self.table.setRowCount(len(vehicles))
 
         for row, v in enumerate(vehicles):
@@ -225,13 +242,16 @@ class VehiclesPage(QWidget):
             self.table.setItem(row, 3, QTableWidgetItem(self.TYPE_LABELS.get(v.vehicle_type, v.vehicle_type)))
             self.table.setItem(row, 4, QTableWidgetItem(f'{v.current_mileage:,} км'))
 
+            driver_name = drivers.get(v.assigned_driver_id, '—') if v.assigned_driver_id else '—'
+            self.table.setItem(row, 5, QTableWidgetItem(driver_name))
+
             status_item = QTableWidgetItem(self.STATUS_LABELS.get(v.status, v.status))
             color = self.STATUS_COLORS.get(v.status, '#6b7280')
             status_item.setForeground(QColor(color))
-            self.table.setItem(row, 5, status_item)
+            self.table.setItem(row, 6, status_item)
 
             id_item = QTableWidgetItem(str(v.id))
-            self.table.setItem(row, 6, id_item)
+            self.table.setItem(row, 7, id_item)
 
     def _get_selected_vehicle_id(self) -> Optional[int]:
         """Получить ID выбранного авто."""
@@ -244,7 +264,7 @@ class VehiclesPage(QWidget):
 
     def _add_vehicle(self):
         """Добавить авто."""
-        dlg = VehicleDialog(parent=self)
+        dlg = VehicleDialog(conn=self.conn, parent=self)
         if dlg.exec() == QDialog.Accepted:
             v = dlg.get_vehicle()
             if not v.marka and not v.gosnomer:
@@ -264,7 +284,7 @@ class VehiclesPage(QWidget):
         if not vehicle:
             return
 
-        dlg = VehicleDialog(vehicle=vehicle, parent=self)
+        dlg = VehicleDialog(vehicle=vehicle, conn=self.conn, parent=self)
         if dlg.exec() == QDialog.Accepted:
             v = dlg.get_vehicle()
             db.update_vehicle(self.conn, v)
