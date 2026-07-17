@@ -279,6 +279,25 @@ def count_drivers(conn: sqlite3.Connection) -> int:
     return cursor.fetchone()[0]
 
 
+def update_driver(conn: sqlite3.Connection, driver: Driver) -> None:
+    """Обновить водителя."""
+    conn.execute("""
+        UPDATE drivers SET fio=?, phone=?, license_number=?, license_category=?,
+            license_expiry=?, hire_date=?, status=?, notes=?
+        WHERE id=?
+    """, (
+        driver.fio, driver.phone, driver.license_number, driver.license_category,
+        driver.license_expiry, driver.hire_date, driver.status, driver.notes, driver.id,
+    ))
+    conn.commit()
+
+
+def delete_driver(conn: sqlite3.Connection, driver_id: int) -> None:
+    """Удалить водителя."""
+    conn.execute("DELETE FROM drivers WHERE id = ?", (driver_id,))
+    conn.commit()
+
+
 # ════════════════════════════════════════════════════════════════════
 # CRUD: Запчасти
 # ════════════════════════════════════════════════════════════════════
