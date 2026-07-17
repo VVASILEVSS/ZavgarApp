@@ -81,7 +81,7 @@ class VehicleDialog(QDialog):
         # Водитель
         self.driver_combo = QComboBox()
         self.driver_combo.addItem('— Не назначен —', None)
-        drivers = db.list_drivers(self.conn) if hasattr(self, 'conn') else []
+        drivers = db.list_drivers(self.conn) if self.conn else []
         for d in drivers:
             self.driver_combo.addItem(d.fio, d.id)
         form.addRow('Водитель:', self.driver_combo)
@@ -180,21 +180,30 @@ class VehiclesPage(QWidget):
     def __init__(self, conn: sqlite3.Connection, parent=None):
         super().__init__(parent)
         self.conn = conn
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(32, 28, 32, 28)
-        layout.setSpacing(16)
+        self._setup_ui()
 
-        # Заголовок + кнопки
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(32, 24, 32, 24)
+        layout.setSpacing(20)
+
+        # Заголовок + поиск
         header = QHBoxLayout()
-        title = QLabel('🚙 Автопарк')
-        title.setObjectName('title')
+        title = QLabel("🚗 Автопарк")
+        title.setObjectName("pageTitle")
         header.addWidget(title)
         header.addStretch()
 
-        add_btn = QPushButton('＋ Добавить авто')
-        add_btn.setObjectName('primaryBtn')
+        # Поиск
+        from ..widgets import SearchBox
+        self.search_box = SearchBox("Поиск по марке, модели, госномеру...")
+        self.search_box.setFixedWidth(300)
+        self.search_box.search_changed.connect(self._filter_table)
+        header.addWidget(self.search_box)
+
+        add_btn = QPushButton("➕ Добавить авто")
+        add_btn.setObjectName("primaryBtn")
         add_btn.clicked.connect(self._add_vehicle)
-        add_shadow(add_btn, blur=10, opacity=20, y_offset=2)
         header.addWidget(add_btn)
 
         edit_btn = QPushButton('✏️ Редактировать')
@@ -231,18 +240,37 @@ class VehiclesPage(QWidget):
 
     def refresh(self):
         """Перезагрузить данные."""
-        vehicles = db.list_vehicles(self.conn)
-        drivers = {d.id: d.fio for d in db.list_drivers(self.conn)}
-        self.table.setRowCount(len(vehicles))
+        self._all_vehicles = db.list_vehicles(self.conn)
+        self._drivers_map = {d.id: d.fio for d in db.list_drivers(self.conn)}
+        self._filter_table("")
 
-        for row, v in enumerate(vehicles):
+    def _filter_table(self, search_text: str):
+        """Фильтровать таблицу по поисковому запросу."""
+        search = search_text.lower()
+        
+        filtered = []
+        for v in self._all_vehicles:
+            if not search:
+                filtered.append(v)
+                continue
+            
+            # Поиск по марке, модели, госномеру, VIN
+            if (search in (v.marka or "").lower() or
+                search in (v.model or "").lower() or
+                search in (v.gosnomer or "").lower() or
+                search in (v.vin or "").lower()):
+                filtered.append(v)
+        
+        self.table.setRowCount(len(filtered))
+
+        for row, v in enumerate(filtered):
             self.table.setItem(row, 0, QTableWidgetItem(f'{v.marka} {v.model}'))
             self.table.setItem(row, 1, QTableWidgetItem(str(v.year or '')))
             self.table.setItem(row, 2, QTableWidgetItem(v.gosnomer))
             self.table.setItem(row, 3, QTableWidgetItem(self.TYPE_LABELS.get(v.vehicle_type, v.vehicle_type)))
             self.table.setItem(row, 4, QTableWidgetItem(f'{v.current_mileage:,} км'))
 
-            driver_name = drivers.get(v.assigned_driver_id, '—') if v.assigned_driver_id else '—'
+            driver_name = self._drivers_map.get(v.assigned_driver_id, '—') if v.assigned_driver_id else '—'
             self.table.setItem(row, 5, QTableWidgetItem(driver_name))
 
             status_item = QTableWidgetItem(self.STATUS_LABELS.get(v.status, v.status))
@@ -259,7 +287,7 @@ class VehiclesPage(QWidget):
         if not rows:
             return None
         row = rows[0].row()
-        item = self.table.item(row, 6)
+        item = self.table.item(row, 7)  # ID в колонке 7
         return int(item.text()) if item else None
 
     def _add_vehicle(self):
