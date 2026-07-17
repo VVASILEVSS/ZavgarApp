@@ -27,7 +27,7 @@ class DriversPage(QWidget):
         super().__init__(parent)
         self.conn = conn
         self._setup_ui()
-        self._load_data()
+        self.refresh()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -96,13 +96,13 @@ class DriversPage(QWidget):
         """Открыть диалог добавления водителя."""
         dialog = DriverDialog(self.conn, parent=self)
         if dialog.exec():
-            self._load_data()
+            self.refresh()
 
     def _edit_driver(self, driver: Driver):
         """Открыть диалог редактирования водителя."""
         dialog = DriverDialog(self.conn, driver=driver, parent=self)
         if dialog.exec():
-            self._load_data()
+            self.refresh()
 
     def _delete_driver(self, driver: Driver):
         """Удалить водителя."""
@@ -114,7 +114,7 @@ class DriversPage(QWidget):
         )
         if reply == QMessageBox.Yes:
             db.delete_driver(self.conn, driver.id)
-            self._load_data()
+            self.refresh()
 
 
 class DriverDialog(QDialog):
