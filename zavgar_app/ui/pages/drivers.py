@@ -18,7 +18,6 @@ from PySide6.QtCore import Qt, QDate
 
 from ... import db
 from ...models import Driver
-from ..theme import apply_card_style
 
 
 class DriversPage(QWidget):
@@ -58,7 +57,6 @@ class DriversPage(QWidget):
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
-        apply_card_style(self.table)
         layout.addWidget(self.table)
 
     def _load_data(self):
