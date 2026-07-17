@@ -59,8 +59,8 @@ class DriversPage(QWidget):
         self.table.setAlternatingRowColors(True)
         layout.addWidget(self.table)
 
-    def _load_data(self):
-        """Загрузить список водителей."""
+    def refresh(self):
+        """Перезагрузить данные."""
         drivers = db.list_drivers(self.conn)
         self.table.setRowCount(len(drivers))
 
@@ -84,6 +84,12 @@ class DriversPage(QWidget):
             edit_btn.clicked.connect(lambda checked, d=driver: self._edit_driver(d))
             actions_layout.addWidget(edit_btn)
 
+            del_btn = QPushButton("🗑️")
+            del_btn.setFixedSize(32, 32)
+            del_btn.setToolTip("Удалить")
+            del_btn.clicked.connect(lambda checked, d=driver: self._delete_driver(d))
+            actions_layout.addWidget(del_btn)
+
             self.table.setCellWidget(row, 6, actions)
 
     def _add_driver(self):
@@ -96,6 +102,18 @@ class DriversPage(QWidget):
         """Открыть диалог редактирования водителя."""
         dialog = DriverDialog(self.conn, driver=driver, parent=self)
         if dialog.exec():
+            self._load_data()
+
+    def _delete_driver(self, driver: Driver):
+        """Удалить водителя."""
+        from PySide6.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self, "Удаление",
+            f"Удалить водителя {driver.fio}?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            db.delete_driver(self.conn, driver.id)
             self._load_data()
 
 
