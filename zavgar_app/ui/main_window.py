@@ -186,6 +186,7 @@ class MainWindow(QMainWindow):
         from zavgar_app.ui.pages.parts import PartsPage
         from zavgar_app.ui.pages.drivers import DriversPage
         from zavgar_app.ui.pages.maintenance import MaintenancePage
+        from zavgar_app.ui.pages.reports import ReportsPage
 
         self.content = QStackedWidget()
         self.pages = [
@@ -194,7 +195,7 @@ class MainWindow(QMainWindow):
             DriversPage(conn) if conn else PlaceholderPage('👤 Водители'),
             PartsPage(conn) if conn else PlaceholderPage('🔧 Склад запчастей'),
             MaintenancePage(conn) if conn else PlaceholderPage('🛠️ ТО и обслуживание'),
-            PlaceholderPage('📈 Отчёты'),
+            ReportsPage(conn) if conn else PlaceholderPage('📈 Отчёты'),
         ]
         for p in self.pages:
             self.content.addWidget(p)
