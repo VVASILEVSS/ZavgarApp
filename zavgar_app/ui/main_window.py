@@ -92,8 +92,9 @@ class Sidebar(QFrame):
 class DashboardPage(QWidget):
     """Панель управления — карточки со статистикой."""
 
-    def __init__(self, parent=None):
+    def __init__(self, conn=None, parent=None):
         super().__init__(parent)
+        self.conn = conn
         layout = QVBoxLayout(self)
         layout.setContentsMargins(32, 28, 32, 28)
         layout.setSpacing(20)
@@ -107,14 +108,26 @@ class DashboardPage(QWidget):
         sub.setObjectName('subtitle')
         layout.addWidget(sub)
 
+        # Реальные данные
+        vehicles = 0
+        on_maint = 0
+        parts = 0
+        drivers = 0
+        if conn:
+            from .. import db as _db
+            vehicles = _db.count_vehicles(conn)
+            on_maint = len(_db.list_vehicles(conn, status='maintenance'))
+            parts = _db.count_parts(conn)
+            drivers = _db.count_drivers(conn)
+
         # Карточки
         cards = QHBoxLayout()
         cards.setSpacing(16)
         for label, val, color in [
-            ('Авто в парке', '0', '#6366f1'),
-            ('На ТО', '0', '#f59e0b'),
-            ('Запчасти', '0', '#8b5cf6'),
-            ('Водители', '0', '#10b981'),
+            ('Авто в парке', str(vehicles), '#6366f1'),
+            ('На ТО', str(on_maint), '#f59e0b'),
+            ('Запчасти', str(parts), '#8b5cf6'),
+            ('Водители', str(drivers), '#10b981'),
         ]:
             cards.addWidget(self._stat_card(label, val, color))
         layout.addLayout(cards)
@@ -190,7 +203,7 @@ class MainWindow(QMainWindow):
 
         self.content = QStackedWidget()
         self.pages = [
-            DashboardPage(),
+            DashboardPage(conn),
             VehiclesPage(conn) if conn else PlaceholderPage('🚙 Автопарк'),
             DriversPage(conn) if conn else PlaceholderPage('👤 Водители'),
             PartsPage(conn) if conn else PlaceholderPage('🔧 Склад запчастей'),
