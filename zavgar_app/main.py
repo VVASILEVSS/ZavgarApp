@@ -48,6 +48,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName(__app_name__)
     app.setApplicationVersion(__version__)
+    app.setStyle('Fusion')  # Принудительно Fusion, иначе Windows нативный стиль перекрывает QSS
 
     # Тема (dark по умолчанию)
     theme_manager.apply_theme(app, 'dark')

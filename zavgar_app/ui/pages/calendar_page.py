@@ -16,6 +16,14 @@ from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QTextCharFormat, QColor, QBrush, QFont
 
 from zavgar_app import db
+from PySide6.QtWidgets import QStyledItemDelegate, QStyle, QFrame
+
+
+class _NoFocusDelegate(QStyledItemDelegate):
+    """Убирает нативную рамку фокуса Windows на ячейках."""
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        option.state &= ~QStyle.State_HasFocus
 
 
 class CalendarPage(QWidget):
@@ -93,7 +101,7 @@ class CalendarPage(QWidget):
         holidays_btn.clicked.connect(self._manage_holidays)
         header.addWidget(holidays_btn)
 
-        root.addLayout(header)
+        root.addLayout(header, 0)  # Шапка не растягивается
 
         # ═══ НИЖНЯЯ ЧАСТЬ: календарь + детали ═══
         body = QHBoxLayout()
@@ -310,16 +318,20 @@ class HolidayDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # Таблица праздников
-        from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
         self.table = QTableWidget()
+        # Убрать рамку виджета (border вокруг таблицы)
+        self.table.setFrameShape(QFrame.NoFrame)
         self.table.setColumnCount(2)
         self.table.setHorizontalHeaderLabels(["Дата", "Название"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setEditTriggers(QTableWidget.DoubleClicked | QTableWidget.EditKeyPressed)
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
+        self.table.setShowGrid(False)
+        self.table.setItemDelegate(_NoFocusDelegate(self.table))
+        self.table.doubleClicked.connect(self._edit_holiday_popup)
         layout.addWidget(self.table)
 
         self._refresh_table()
@@ -370,6 +382,36 @@ class HolidayDialog(QDialog):
             if date_str not in self.holidays:
                 self.holidays[date_str] = name
         self._refresh_table()
+
+    def _edit_holiday_popup(self, index):
+        """Открыть popup для редактирования праздника при двойном клике."""
+        row = index.row()
+        date_str = self.table.item(row, 0).text()
+        name = self.table.item(row, 1).text()
+        
+        from PySide6.QtWidgets import QDialog as QD
+        dialog = QD(self)
+        dialog.setWindowTitle("Редактировать праздник")
+        layout = QVBoxLayout(dialog)
+        
+        from PySide6.QtWidgets import QLineEdit
+        name_edit = QLineEdit()
+        name_edit.setText(name)
+        name_edit.setPlaceholderText("Название праздника")
+        layout.addWidget(name_edit)
+        
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        save_btn = QPushButton("Сохранить")
+        save_btn.clicked.connect(dialog.accept)
+        btn_layout.addWidget(save_btn)
+        layout.addLayout(btn_layout)
+        
+        if dialog.exec() == QD.Accepted:
+            new_name = name_edit.text().strip()
+            if new_name:
+                self.holidays[date_str] = new_name
+                self._refresh_table()
 
     def _add_custom_holiday(self):
         """Добавить свой праздник."""

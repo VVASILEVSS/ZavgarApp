@@ -31,31 +31,30 @@ class PartDialog(QDialog):
     def __init__(self, part: Optional[Part] = None, parent=None):
         super().__init__(parent)
         self.part = part
-        self.setWindowTitle('Добавить запчасть' if not part else 'Редактировать запчасть')
-        self.setMinimumWidth(440)
+        self.setWindowTitle('Редактировать запчасть' if part else 'Добавить запчасть')
+        self.setMinimumWidth(400)
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
 
         form = QFormLayout()
-        form.setSpacing(10)
-        form.setLabelAlignment(Qt.AlignRight)
+        form.setSpacing(8)
 
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText('Масло моторное 5W-30')
+        self.name_input.setPlaceholderText('Название запчасти')
         form.addRow('Название:', self.name_input)
 
         self.article_input = QLineEdit()
-        self.article_input.setPlaceholderText('OIL-5W30')
+        self.article_input.setPlaceholderText('Артикул')
         form.addRow('Артикул:', self.article_input)
 
         self.category_input = QLineEdit()
-        self.category_input.setPlaceholderText('Масла, фильтры, тормоза...')
+        self.category_input.setPlaceholderText('Категория')
         form.addRow('Категория:', self.category_input)
 
         self.unit_input = QLineEdit()
         self.unit_input.setText('шт')
-        self.unit_input.setMaximumWidth(100)
+        self.unit_input.setMaximumWidth(80)
         form.addRow('Единица:', self.unit_input)
 
         self.quantity_input = QDoubleSpinBox()
@@ -74,11 +73,6 @@ class PartDialog(QDialog):
         self.price_input.setPrefix('₸ ')
         form.addRow('Ср. цена:', self.price_input)
 
-        self.notes_input = QTextEdit()
-        self.notes_input.setPlaceholderText('Заметки...')
-        self.notes_input.setMaximumHeight(60)
-        form.addRow('Заметки:', self.notes_input)
-
         layout.addLayout(form)
 
         btn_layout = QHBoxLayout()
@@ -91,7 +85,6 @@ class PartDialog(QDialog):
         save_btn = QPushButton('Сохранить')
         save_btn.setObjectName('primaryBtn')
         save_btn.clicked.connect(self.accept)
-        add_shadow(save_btn, blur=10, opacity=20, y_offset=2)
         btn_layout.addWidget(save_btn)
 
         layout.addLayout(btn_layout)
@@ -104,7 +97,6 @@ class PartDialog(QDialog):
             self.quantity_input.setValue(part.quantity)
             self.min_quantity_input.setValue(part.min_quantity)
             self.price_input.setValue(part.avg_price)
-            self.notes_input.setPlainText(part.notes or '')
 
     def get_part(self) -> Part:
         now = datetime.now().isoformat(sep=' ', timespec='seconds')
@@ -117,7 +109,7 @@ class PartDialog(QDialog):
             quantity=self.quantity_input.value(),
             min_quantity=self.min_quantity_input.value(),
             avg_price=self.price_input.value(),
-            notes=self.notes_input.toPlainText().strip() or None,
+            notes=self.part.notes if self.part else None,
             created_at=self.part.created_at if self.part else now,
             updated_at=now,
         )
@@ -244,7 +236,7 @@ class PartsPage(QWidget):
         print_btn.clicked.connect(self._print_part)
         header.addWidget(print_btn)
 
-        layout.addLayout(header)
+        layout.addLayout(header, 0)  # Шапка не растягивается
 
         # Табы: Остатки | История
         self.tabs = QTabWidget()
@@ -283,11 +275,13 @@ class PartsPage(QWidget):
         self.parts_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.parts_table.customContextMenuRequested.connect(self._show_context_menu)
         self.parts_table.horizontalHeader().sectionResized.connect(self._on_column_resized)
-        layout.addWidget(self.parts_table)
         
         # Восстановить ширины столбцов
         from zavgar_app.utils.column_settings import restore_column_widths
         restore_column_widths(self.parts_table, "parts")
+
+        # Добавить табы в layout
+        layout.addWidget(self.tabs, 1)
 
         self.refresh()
     

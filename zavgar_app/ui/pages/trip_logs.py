@@ -7,11 +7,12 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QDialog, QFormLayout, QDateEdit,
     QTimeEdit, QComboBox, QSpinBox, QLineEdit, QTextEdit, QMessageBox,
-    QMenu
+    QMenu, QAbstractSpinBox
 )
 from PySide6.QtCore import Qt, QDate, QTime
 from zavgar_app.utils.column_settings import save_column_widths, restore_column_widths
 from PySide6.QtGui import QColor, QAction
+from zavgar_app.ui.widgets.triangle_spinbox import TriangleTimeEdit, TriangleSpinBox, TriangleDateEdit
 
 from zavgar_app import db
 from zavgar_app.models import TripLog, Driver, Vehicle
@@ -55,29 +56,28 @@ class TripLogDialog(QDialog):
         form.addRow("Автомобиль:", self.vehicle_combo)
         
         # Дата
-        self.date_edit = QDateEdit()
-        self.date_edit.setCalendarPopup(True)
+        self.date_edit = TriangleDateEdit()
         self.date_edit.setDate(QDate.currentDate())
         form.addRow("Дата:", self.date_edit)
         
         # Время начала
-        self.start_time_edit = QTimeEdit()
+        self.start_time_edit = TriangleTimeEdit()
         self.start_time_edit.setTime(QTime(8, 0))
         form.addRow("Начало:", self.start_time_edit)
         
         # Время окончания
-        self.end_time_edit = QTimeEdit()
+        self.end_time_edit = TriangleTimeEdit()
         self.end_time_edit.setTime(QTime(17, 0))
         form.addRow("Окончание:", self.end_time_edit)
         
         # Пробег начальный
-        self.start_mileage_spin = QSpinBox()
+        self.start_mileage_spin = TriangleSpinBox()
         self.start_mileage_spin.setRange(0, 999999)
         self.start_mileage_spin.setSuffix(" км")
         form.addRow("Пробег (начало):", self.start_mileage_spin)
         
         # Пробег конечный
-        self.end_mileage_spin = QSpinBox()
+        self.end_mileage_spin = TriangleSpinBox()
         self.end_mileage_spin.setRange(0, 999999)
         self.end_mileage_spin.setSuffix(" км")
         form.addRow("Пробег (конец):", self.end_mileage_spin)
