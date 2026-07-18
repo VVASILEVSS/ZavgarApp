@@ -36,6 +36,10 @@ QFrame#sidebar {
     border-right: 1px solid rgba(255,255,255,0.06);
 }
 
+QFrame#sidebarSeparator {
+    background-color: rgba(255,255,255,0.08);
+}
+
 /* Sidebar nav items */
 QPushButton#navItem {
     background-color: transparent;
@@ -313,6 +317,8 @@ QLabel#title { font-size: 24px; font-weight: 700; color: #f9fafb; }
 QLabel#subtitle { font-size: 14px; color: #9ca3af; }
 QLabel#statValue { font-size: 32px; font-weight: 700; }
 QLabel#statLabel { font-size: 13px; color: #9ca3af; }
+QLabel#hintText { font-size: 12px; color: #9ca3af; }
+QLabel#versionText { font-size: 11px; color: #9ca3af; }
 
 /* Tooltip */
 QToolTip {
@@ -485,6 +491,10 @@ QFrame#sidebar {
     background-color: #f8f9fa;
     border: none;
     border-right: 1px solid #e5e7eb;
+}
+
+QFrame#sidebarSeparator {
+    background-color: #e5e7eb;
 }
 
 /* Sidebar nav items */
@@ -780,6 +790,8 @@ QLabel#title { font-size: 24px; font-weight: 700; color: #18181b; }
 QLabel#subtitle { font-size: 14px; color: #6b7280; }
 QLabel#statValue { font-size: 32px; font-weight: 700; }
 QLabel#statLabel { font-size: 13px; color: #6b7280; }
+QLabel#hintText { font-size: 12px; color: #6b7280; }
+QLabel#versionText { font-size: 11px; color: #6b7280; }
 
 /* Tooltip */
 QToolTip {

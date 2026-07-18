@@ -71,7 +71,7 @@ class CalendarPage(QWidget):
             col.setSpacing(0)
             col.addWidget(lbl, 0, Qt.AlignHCenter)
             s = QLabel(sub)
-            s.setStyleSheet("font-size: 11px; color: #9ca3af;")
+            s.setObjectName("hintText")
             col.addWidget(s, 0, Qt.AlignHCenter)
             header.addLayout(col)
 
@@ -122,7 +122,7 @@ class CalendarPage(QWidget):
             dot.setStyleSheet(f"color: {color}; font-size: 12px;")
             legend.addWidget(dot)
             t = QLabel(text)
-            t.setStyleSheet("font-size: 11px; color: #9ca3af;")
+            t.setObjectName("hintText")
             legend.addWidget(t)
         legend.addStretch()
         cal_layout.addLayout(legend)

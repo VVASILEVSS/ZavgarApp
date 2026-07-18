@@ -101,7 +101,7 @@ class TrashPage(QWidget):
 
         # Подсказка
         hint = QLabel("💡 Записи хранятся в корзине 6 месяцев, затем удаляются автоматически")
-        hint.setStyleSheet("color: #9ca3af; font-size: 12px; padding: 8px;")
+        hint.setObjectName("hintText")
         hint.setAlignment(Qt.AlignCenter)
         layout.addWidget(hint)
 

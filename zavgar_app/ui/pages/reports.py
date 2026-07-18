@@ -103,7 +103,7 @@ class ReportsPage(QWidget):
         card_layout.addWidget(val_label)
 
         text_label = QLabel(label)
-        text_label.setStyleSheet("font-size: 13px; color: #6b7280;")
+        text_label.setObjectName("statLabel")
         text_label.setAlignment(Qt.AlignCenter)
         card_layout.addWidget(text_label)
 

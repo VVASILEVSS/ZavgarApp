@@ -48,7 +48,7 @@ class Sidebar(QFrame):
         # Разделитель
         sep = QFrame()
         sep.setFixedHeight(1)
-        sep.setStyleSheet('background-color: #e5e7eb;')
+        sep.setObjectName("sidebarSeparator")
         layout.addWidget(sep)
         layout.addSpacing(8)
 
@@ -89,7 +89,7 @@ class Sidebar(QFrame):
         # Версия
         ver = QLabel('v0.1.0')
         ver.setAlignment(Qt.AlignCenter)
-        ver.setStyleSheet('color: #9ca3af; font-size: 11px; padding: 8px;')
+        ver.setObjectName("versionText")
         layout.addWidget(ver)
 
     def set_active(self, index: int):
