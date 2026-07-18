@@ -1023,9 +1023,9 @@ class WriteOffPage(QWidget):
         )
         if reply == QMessageBox.Yes:
             try:
-                self.conn.execute("DELETE FROM write_off_items WHERE write_off_id = ?", (act_id,))
-                self.conn.execute("DELETE FROM write_offs WHERE id = ?", (act_id,))
-                self.conn.commit()
+                # Soft-delete: помечаем как удалённый
+                from zavgar_app import db
+                db.soft_delete(self.conn, 'write_offs', act_id)
                 self._refresh()
             except Exception as e:
                 QMessageBox.critical(self, "Ошибка", str(e))

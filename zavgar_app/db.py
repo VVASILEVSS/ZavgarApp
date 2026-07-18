@@ -22,7 +22,7 @@ from .models import Vehicle, Driver, Part, PartTransaction, MaintenanceSchedule,
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 def open_db(db_path: str | Path) -> sqlite3.Connection:
@@ -60,6 +60,8 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
             _migrate_v1_to_v2(conn)
         if current < 3:
             _migrate_v2_to_v3(conn)
+        if current < 4:
+            _migrate_v3_to_v4(conn)
         conn.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
         conn.commit()
 
@@ -251,6 +253,20 @@ def _migrate_v2_to_v3(conn: sqlite3.Connection) -> None:
             logger.info(f"deleted_at already exists in {table}")
     
     logger.info("Migration v2→v3 completed (trash/soft-delete)")
+
+
+def _migrate_v3_to_v4(conn: sqlite3.Connection) -> None:
+    """Добавить deleted_at в write_offs и write_off_items."""
+    for table in ['write_offs', 'write_off_items']:
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN deleted_at TEXT")
+            logger.info(f"Added deleted_at to {table}")
+        except sqlite3.OperationalError as e:
+            if "duplicate column name" not in str(e).lower():
+                raise
+            logger.info(f"deleted_at already exists in {table}")
+    
+    logger.info("Migration v3→v4 completed (write_offs soft-delete)")
 
 
 # ════════════════════════════════════════════════════════════════════

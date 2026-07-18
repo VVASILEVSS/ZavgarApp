@@ -38,6 +38,11 @@ def main():
     db_path = Path('zavgar_data.db')
     conn = db.open_db(db_path)
     logger.info(f'Database opened: {db_path}')
+    
+    # Автоочистка корзины (старше 6 месяцев)
+    deleted_count = db.cleanup_old_trash(conn, months=6)
+    if deleted_count > 0:
+        logger.info(f"Auto-cleaned {deleted_count} old trash records")
 
     # Qt
     app = QApplication(sys.argv)

@@ -26,6 +26,11 @@ TRASH_TABLES = {
     'vehicles':  {'label': 'Авто',      'desc_col': "marka || ' ' || model || ' (' || gosnomer || ')'"},
     'drivers':   {'label': 'Водитель',  'desc_col': 'fio'},
     'parts':     {'label': 'Запчасть',  'desc_col': 'name'},
+    'maintenance_schedules': {'label': 'ТО (план)', 'desc_col': "maintenance_type || ' — ' || interval_km || ' км'"},
+    'maintenance_records':   {'label': 'ТО (факт)', 'desc_col': "maintenance_type || ' (' || mileage || ' км)'"},
+    'timesheets': {'label': 'Табель',   'desc_col': "work_date || ' — ' || status"},
+    'trip_logs':  {'label': 'Путевой',  'desc_col': "trip_date || ' — маршрут'"},
+    'write_offs': {'label': 'Списание', 'desc_col': "act_number || ' от ' || act_date"},
 }
 
 
