@@ -340,8 +340,10 @@ class MaintenancePage(QWidget):
             return
         row = rows[0].row()
         sid = int(self.schedules_table.item(row, 0).text())
-        # TODO: реализовать редактирование
-        QMessageBox.information(self, "Info", f"Редактирование графика #{sid}")
+        schedules = db.list_maintenance_schedules(self.conn)
+        schedule = next((s for s in schedules if s.id == sid), None)
+        if schedule:
+            self._edit_schedule_item(schedule)
 
     def _edit_schedule_item(self, schedule):
         """Редактировать график ТО (из кнопки действий)."""

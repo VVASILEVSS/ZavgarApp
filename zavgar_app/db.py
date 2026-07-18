@@ -585,6 +585,21 @@ def delete_maintenance_schedule(conn: sqlite3.Connection, schedule_id: int) -> N
     soft_delete(conn, 'maintenance_schedules', schedule_id)
 
 
+def update_maintenance_schedule(conn: sqlite3.Connection, schedule: MaintenanceSchedule) -> None:
+    """Обновить график ТО."""
+    conn.execute("""
+        UPDATE maintenance_schedules SET
+            vehicle_id=?, maintenance_type=?, interval_km=?,
+            last_done_km=?, last_done_date=?, next_due_km=?, next_due_date=?, notes=?
+        WHERE id=?
+    """, (
+        schedule.vehicle_id, schedule.maintenance_type, schedule.interval_km,
+        schedule.last_done_km, schedule.last_done_date, schedule.next_due_km,
+        schedule.next_due_date, schedule.notes, schedule.id,
+    ))
+    conn.commit()
+
+
 # ════════════════════════════════════════════════════════════════════
 # CRUD: Записи ТО
 # ════════════════════════════════════════════════════════════════════

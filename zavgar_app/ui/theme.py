@@ -115,6 +115,11 @@ QPushButton#primaryBtn {
 QPushButton#primaryBtn:hover { background-color: #818cf8; }
 QPushButton#primaryBtn:pressed { background-color: #4f46e5; }
 
+/* Plus/add icons — always white text on primary buttons */
+QPushButton#primaryBtn {
+    color: #ffffff !important;
+}
+
 QPushButton#dangerBtn {
     background-color: rgba(239,68,68,0.15);
     color: #fca5a5;
@@ -571,6 +576,11 @@ QPushButton#primaryBtn {
 QPushButton#primaryBtn:hover { background-color: #818cf8; }
 QPushButton#primaryBtn:pressed { background-color: #4f46e5; }
 
+/* Plus/add icons — always white text on primary buttons */
+QPushButton#primaryBtn {
+    color: #ffffff !important;
+}
+
 /* Action buttons (edit / delete) — light theme */
 QPushButton#actionBtn {
     background-color: #ffffff;
@@ -826,6 +836,145 @@ QGroupBox {
     padding: 16px;
     padding-top: 28px;
     font-weight: 600;
+}
+
+/* Dialogs and message boxes */
+QDialog, QMessageBox {
+    background-color: #ffffff;
+    color: #18181b;
+}
+QDialog QLabel, QMessageBox QLabel {
+    color: #18181b;
+    background: transparent;
+}
+QMessageBox QPushButton {
+    min-width: 80px;
+    padding: 8px 16px;
+}
+
+/* Form labels in dialogs */
+QFormLayout QLabel {
+    color: #18181b;
+    font-weight: 500;
+}
+
+/* Date/Time edits in light theme */
+QDateEdit, QTimeEdit, QDateTimeEdit {
+    background-color: #ffffff;
+    color: #18181b;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 10px 14px;
+    selection-background-color: #c7d2fe;
+    selection-color: #18181b;
+}
+QDateEdit:focus, QTimeEdit:focus, QDateTimeEdit:focus {
+    border: 1px solid #6366f1;
+}
+QDateEdit::drop-down, QTimeEdit::drop-down, QDateTimeEdit::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border: none;
+}
+QDateEdit::down-arrow, QTimeEdit::down-arrow, QDateTimeEdit::down-arrow {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #6b7280;
+    margin-right: 8px;
+}
+
+/* Text edits in light theme */
+QTextEdit, QPlainTextEdit {
+    background-color: #ffffff;
+    color: #18181b;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 10px 14px;
+    selection-background-color: #c7d2fe;
+    selection-color: #18181b;
+}
+QTextEdit:focus, QPlainTextEdit:focus {
+    border: 1px solid #6366f1;
+}
+
+/* Context menus */
+QMenu {
+    background-color: #ffffff;
+    color: #18181b;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 4px 0;
+}
+QMenu::item {
+    padding: 8px 24px;
+    background-color: transparent;
+    color: #18181b;
+}
+QMenu::item:selected {
+    background-color: #ede9fe;
+    color: #18181b;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: #e5e7eb;
+    margin: 4px 0;
+}
+
+/* Calendar popup — light theme */
+QCalendarWidget { outline: none; border: 1px solid #e5e7eb; border-radius: 10px; }
+QCalendarWidget QAbstractItemView:focus { outline: none; border: none; }
+QCalendarWidget QAbstractItemView::item:selected { background-color: #ede9fe; }
+QCalendarWidget QWidget#qt_calendar_navigationbar {
+    background-color: #f9fafb;
+    color: #18181b;
+}
+QCalendarWidget QToolButton {
+    color: #18181b;
+    background-color: transparent;
+    border: none;
+    padding: 4px 8px;
+}
+QCalendarWidget QToolButton:hover {
+    background-color: #ede9fe;
+    border-radius: 4px;
+}
+QCalendarWidget QAbstractItemView {
+    background-color: #ffffff;
+    color: #18181b;
+    selection-background-color: #ede9fe;
+    selection-color: #18181b;
+    alternate-background-color: #f9fafb;
+}
+
+/* List widget — light theme */
+QListWidget {
+    background-color: #ffffff;
+    alternate-background-color: #f9fafb;
+    color: #18181b;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+QListWidget::item {
+    padding: 6px 10px;
+    border-radius: 4px;
+    color: #18181b;
+}
+QListWidget::item:selected {
+    background-color: #ede9fe;
+    color: #18181b;
+}
+
+/* Focus — remove dotted outline (light theme) */
+*:focus { outline: none; }
+QTableWidget::item:focus, QTableView::item:focus { outline: none; border: none; }
+QTableWidget::item, QTableView::item {
+    color: #18181b;
+}
+
+/* Table item text color enforcement — light */
+QComboBox QAbstractItemView::item {
+    color: #18181b;
 }
 """
 

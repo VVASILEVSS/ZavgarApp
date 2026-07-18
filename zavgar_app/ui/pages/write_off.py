@@ -698,20 +698,22 @@ class WriteOffPage(QWidget):
             self._show_act_dialog(act_id)
 
     def _show_act_dialog(self, act_id: int):
-        """Показать акт списания в диалоге с позициями."""
+        """Показать акт списания в диалоге редактирования с позициями."""
         acts = self._load_acts()
         act = next((a for a in acts if a['id'] == act_id), None)
         if not act:
             return
 
-        drivers = {d.id: d.fio for d in db.list_drivers(self.conn)}
-        vehicles = {v.id: f"{v.marka} {v.model} ({v.gosnomer})" for v in db.list_vehicles(self.conn)}
+        drivers_list = db.list_drivers(self.conn)
+        vehicles_list = db.list_vehicles(self.conn)
+        drivers = {d.id: d.fio for d in drivers_list}
+        vehicles = {v.id: f"{v.marka} {v.model} ({v.gosnomer})" for v in vehicles_list}
         items = self._load_act_items(act_id)
 
         dialog = QDialog(self)
         dialog.setWindowTitle(f"Акт {act['act_number']}")
         dialog.setMinimumWidth(650)
-        dialog.setMinimumHeight(450)
+        dialog.setMinimumHeight(500)
         layout = QVBoxLayout(dialog)
 
         # Заголовок
@@ -719,25 +721,52 @@ class WriteOffPage(QWidget):
         title.setStyleSheet("font-size: 18px; font-weight: 700;")
         layout.addWidget(title)
 
-        # Инфо
-        info = QLabel(
-            f"Дата: {act['act_date']}\n"
-            f"Авто: {vehicles.get(act['vehicle_id'], '—')}\n"
-            f"Водитель: {drivers.get(act['driver_id'], '—')}\n"
-            f"Причина: {act['reason'] or '—'}"
-        )
-        info.setWordWrap(True)
-        layout.addWidget(info)
+        # Форма редактирования
+        form = QFormLayout()
+        form.setSpacing(10)
+
+        date_edit = QDateEdit()
+        date_edit.setCalendarPopup(True)
+        from PySide6.QtCore import QDate as QD
+        date_edit.setDate(QD.fromString(act['act_date'], "yyyy-MM-dd"))
+        form.addRow("Дата:", date_edit)
+
+        vehicle_combo = QComboBox()
+        vehicle_combo.addItem("— Не выбрано —", None)
+        for v in vehicles_list:
+            vehicle_combo.addItem(f"{v.marka} {v.model} ({v.gosnomer})", v.id)
+        idx = vehicle_combo.findData(act['vehicle_id'])
+        if idx >= 0:
+            vehicle_combo.setCurrentIndex(idx)
+        form.addRow("Автомобиль:", vehicle_combo)
+
+        driver_combo = QComboBox()
+        driver_combo.addItem("— Не выбрано —", None)
+        for d in drivers_list:
+            driver_combo.addItem(d.fio, d.id)
+        idx = driver_combo.findData(act['driver_id'])
+        if idx >= 0:
+            driver_combo.setCurrentIndex(idx)
+        form.addRow("Водитель:", driver_combo)
+
+        reason_edit = QTextEdit()
+        reason_edit.setPlainText(act['reason'] or '')
+        reason_edit.setMaximumHeight(60)
+        form.addRow("Причина:", reason_edit)
+
+        layout.addLayout(form)
 
         # Таблица позиций
+        items_label = QLabel("Позиции:")
+        items_label.setStyleSheet("font-weight: 600;")
+        layout.addWidget(items_label)
+
         table = QTableWidget()
         table.setColumnCount(5)
         table.setHorizontalHeaderLabels(["Запчасть", "Артикул", "Кол-во", "Цена", "Сумма"])
         table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        for col in range(1, 5):
+            table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeToContents)
         table.verticalHeader().setVisible(False)
         table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -755,22 +784,45 @@ class WriteOffPage(QWidget):
         layout.addWidget(table)
 
         # Итого
-        total = QLabel(f"Итого: ₸ {act['total_amount']:,.2f}")
+        total_amount = sum(i['amount'] for i in items)
+        total = QLabel(f"Итого: ₸ {total_amount:,.2f}")
         total.setStyleSheet("font-size: 16px; font-weight: 700;")
         layout.addWidget(total)
 
         # Кнопки
         btn_layout = QHBoxLayout()
-        export_btn = QPushButton("📊 Экспорт в Excel")
-        export_btn.setObjectName("primaryBtn")
+        save_btn = QPushButton("💾 Сохранить")
+        save_btn.setObjectName("primaryBtn")
+
+        def _save_act():
+            self.conn.execute("""
+                UPDATE write_offs SET act_date=?, vehicle_id=?, driver_id=?, reason=?
+                WHERE id=?
+            """, (
+                date_edit.date().toString("yyyy-MM-dd"),
+                vehicle_combo.currentData(),
+                driver_combo.currentData(),
+                reason_edit.toPlainText().strip(),
+                act_id,
+            ))
+            self.conn.commit()
+            self._refresh()
+            dialog.accept()
+
+        save_btn.clicked.connect(_save_act)
+        btn_layout.addWidget(save_btn)
+
+        export_btn = QPushButton("📊 Экспорт")
         export_btn.clicked.connect(lambda: self._export_act(act_id))
         btn_layout.addWidget(export_btn)
+
         btn_layout.addStretch()
+
         close_btn = QPushButton("Закрыть")
         close_btn.clicked.connect(dialog.reject)
         btn_layout.addWidget(close_btn)
-        layout.addLayout(btn_layout)
 
+        layout.addLayout(btn_layout)
         dialog.exec()
 
     def _export_act(self, act_id: int):

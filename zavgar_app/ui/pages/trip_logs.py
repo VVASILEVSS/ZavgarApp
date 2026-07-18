@@ -348,20 +348,131 @@ class TripLogsPage(QWidget):
         self.print_btn.setEnabled(has_selection)
 
     def _print_selected(self):
-        """Печать выбранного путевого листа."""
+        """Печать выбранного путевого листа (форма РК)."""
         trip = self._get_selected_trip()
         if not trip:
             QMessageBox.information(self, "Информация", "Выберите запись для печати")
             return
 
-        # TODO: Implement actual print logic (QPrinter / PDF export)
-        QMessageBox.information(
-            self, "Печать",
-            f"Печать путевого листа:\n\n"
-            f"Дата: {trip.trip_date}\n"
-            f"Маршрут: {trip.route_from} → {trip.route_to}\n"
-            f"Пробег: {trip.distance_km or 0} км"
-        )
+        # Получить данные водителя и авто
+        drivers = {d.id: d.fio for d in db.list_drivers(self.conn)}
+        vehicles = {v.id: v for v in db.list_vehicles(self.conn)}
+        driver_name = drivers.get(trip.driver_id, '—')
+        vehicle = vehicles.get(trip.vehicle_id)
+        vehicle_info = f"{vehicle.marka} {vehicle.model}, {vehicle.gosnomer}" if vehicle else '—'
+
+        from zavgar_app.utils import print_document
+        html = f"""
+        <div style="font-family: 'Times New Roman', serif; font-size: 12pt;">
+            <h2 style="text-align: center; margin-bottom: 5px;">ПУТЕВОЙ ЛИСТ</h2>
+            <p style="text-align: center; margin-top: 0;">Форма № 3 (Республика Казахстан)</p>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                <tr>
+                    <td style="width: 50%; padding: 5px; border: 1px solid #000;">
+                        <b>Организация:</b> _______________________
+                    </td>
+                    <td style="width: 50%; padding: 5px; border: 1px solid #000;">
+                        <b>Дата:</b> {trip.trip_date}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px; border: 1px solid #000;">
+                        <b>Номер путевого листа:</b> {trip.id:06d}
+                    </td>
+                    <td style="padding: 5px; border: 1px solid #000;">
+                        <b>Срок действия:</b> 1 день
+                    </td>
+                </tr>
+            </table>
+
+            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                <tr>
+                    <td style="padding: 5px; border: 1px solid #000;">
+                        <b>Водитель:</b> {driver_name}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px; border: 1px solid #000;">
+                        <b>Автомобиль:</b> {vehicle_info}
+                    </td>
+                </tr>
+            </table>
+
+            <h3 style="margin-top: 20px; margin-bottom: 10px;">Задание на перевозку</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 5px; border: 1px solid #000; width: 30%;">
+                        <b>Откуда:</b>
+                    </td>
+                    <td style="padding: 5px; border: 1px solid #000;">
+                        {trip.route_from or '—'}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px; border: 1px solid #000;">
+                        <b>Куда:</b>
+                    </td>
+                    <td style="padding: 5px; border: 1px solid #000;">
+                        {trip.route_to or '—'}
+                    </td>
+                </tr>
+            </table>
+
+            <h3 style="margin-top: 20px; margin-bottom: 10px;">Движение горючего (литров)</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="background-color: #f0f0f0;">
+                    <th style="padding: 5px; border: 1px solid #000;">Остаток при выезде</th>
+                    <th style="padding: 5px; border: 1px solid #000;">Выдано</th>
+                    <th style="padding: 5px; border: 1px solid #000;">Остаток при возвращении</th>
+                    <th style="padding: 5px; border: 1px solid #000;">Расход по норме</th>
+                </tr>
+                <tr>
+                    <td style="padding: 5px; border: 1px solid #000; text-align: center;">{trip.fuel_start or '—'}</td>
+                    <td style="padding: 5px; border: 1px solid #000; text-align: center;">{trip.fuel_issued or '—'}</td>
+                    <td style="padding: 5px; border: 1px solid #000; text-align: center;">{trip.fuel_end or '—'}</td>
+                    <td style="padding: 5px; border: 1px solid #000; text-align: center;">—</td>
+                </tr>
+            </table>
+
+            <h3 style="margin-top: 20px; margin-bottom: 10px;">Пробег</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 5px; border: 1px solid #000; width: 50%;">
+                        <b>Спидометр при выезде:</b> {trip.start_mileage or '—'} км
+                    </td>
+                    <td style="padding: 5px; border: 1px solid #000;">
+                        <b>Спидометр при возвращении:</b> {trip.end_mileage or '—'} км
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="padding: 5px; border: 1px solid #000;">
+                        <b>Общий пробег:</b> {(trip.end_mileage or 0) - trip.start_mileage} км
+                    </td>
+                </tr>
+            </table>
+
+            <table style="width: 100%; margin-top: 30px; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #000; width: 50%;">
+                        <b>Выезд:</b><br/>
+                        Время: {trip.departure_time or '—'}<br/>
+                        Подпись водителя: ___________
+                    </td>
+                    <td style="padding: 10px; border: 1px solid #000;">
+                        <b>Возвращение:</b><br/>
+                        Время: {trip.return_time or '—'}<br/>
+                        Подпись водителя: ___________
+                    </td>
+                </tr>
+            </table>
+
+            <p style="margin-top: 30px; text-align: center; font-size: 10pt;">
+                <i>Подпись диспетчера: _______________ Подпись механика: _______________</i>
+            </p>
+        </div>
+        """
+        print_document(html, "Путевой лист")
 
     def _add_trip(self):
         """Добавить путевой лист."""
