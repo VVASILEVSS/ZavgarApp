@@ -63,6 +63,7 @@ class Sidebar(QFrame):
             ('Табель учёта', '📅'),
             ('Путевые листы', '🚗'),
             ('Календарь', '🗓️'),
+            ('Акты списания', '📋'),
             ('Отчёты', '📈'),
         ]
         for text, icon in nav_items:
@@ -71,6 +72,13 @@ class Sidebar(QFrame):
             layout.addWidget(btn)
 
         layout.addStretch()
+
+        # Кнопка корзины
+        self.trash_btn = QPushButton('🗑️ Корзина')
+        self.trash_btn.setObjectName('ghostBtn')
+        self.trash_btn.setStyleSheet('text-align: center; padding: 10px;')
+        self.trash_btn.clicked.connect(lambda: self._navigate(10))
+        layout.addWidget(self.trash_btn)
 
         # Кнопка переключения темы
         self.theme_btn = QPushButton('🌙 Тёмная тема')
@@ -206,6 +214,8 @@ class MainWindow(QMainWindow):
         from zavgar_app.ui.pages.trip_logs import TripLogsPage
         from zavgar_app.ui.pages.calendar_page import CalendarPage
         from zavgar_app.ui.pages.reports import ReportsPage
+        from zavgar_app.ui.pages.write_off import WriteOffPage
+        from zavgar_app.ui.pages.trash import TrashPage
 
         self.content = QStackedWidget()
         self.pages = [
@@ -217,7 +227,9 @@ class MainWindow(QMainWindow):
             TimesheetsPage(conn) if conn else PlaceholderPage('📅 Табель учёта'),
             TripLogsPage(conn) if conn else PlaceholderPage('🚗 Путевые листы'),
             CalendarPage(conn) if conn else PlaceholderPage('🗓️ Календарь'),
+            WriteOffPage(conn) if conn else PlaceholderPage('📋 Акты списания'),
             ReportsPage(conn) if conn else PlaceholderPage('📈 Отчёты'),
+            TrashPage(conn) if conn else PlaceholderPage('🗑️ Корзина'),
         ]
         for p in self.pages:
             self.content.addWidget(p)

@@ -15,10 +15,10 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
     QFormLayout, QLineEdit, QDoubleSpinBox, QComboBox, QTextEdit,
-    QMessageBox, QAbstractItemView, QTabWidget,
+    QMessageBox, QAbstractItemView, QTabWidget, QMenu,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QAction
 
 from zavgar_app.models import Part, PartTransaction
 from zavgar_app import db
@@ -213,15 +213,36 @@ class PartsPage(QWidget):
         header.addWidget(title)
         header.addStretch()
 
-        add_btn = QPushButton('＋ Добавить')
+        add_btn = QPushButton('＋')
         add_btn.setObjectName('primaryBtn')
+        add_btn.setToolTip('Добавить запчасть')
         add_btn.clicked.connect(self._add_part)
         add_shadow(add_btn, blur=10, opacity=20, y_offset=2)
         header.addWidget(add_btn)
 
-        tx_btn = QPushButton('💰 Приход/Расход')
+        edit_btn = QPushButton('✏️')
+        edit_btn.setObjectName('actionBtn')
+        edit_btn.setToolTip('Редактировать запчасть')
+        edit_btn.clicked.connect(self._edit_part)
+        header.addWidget(edit_btn)
+
+        del_btn = QPushButton('🗑️')
+        del_btn.setObjectName('actionDelete')
+        del_btn.setToolTip('Удалить (в корзину)')
+        del_btn.clicked.connect(self._delete_part)
+        header.addWidget(del_btn)
+
+        tx_btn = QPushButton('💰')
+        tx_btn.setObjectName('actionBtn')
+        tx_btn.setToolTip('Приход/Расход')
         tx_btn.clicked.connect(self._add_transaction)
         header.addWidget(tx_btn)
+
+        print_btn = QPushButton('🖨️')
+        print_btn.setObjectName('ghostBtn')
+        print_btn.setToolTip('Печать')
+        print_btn.clicked.connect(self._print_part)
+        header.addWidget(print_btn)
 
         layout.addLayout(header)
 
@@ -243,6 +264,8 @@ class PartsPage(QWidget):
         self.parts_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.parts_table.verticalHeader().setVisible(False)
         self.parts_table.setShowGrid(False)
+        self.parts_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.parts_table.customContextMenuRequested.connect(self._show_context_menu)
         self.parts_table.doubleClicked.connect(self._edit_part)
         self.tabs.addTab(self.parts_table, 'Остатки')
 
@@ -269,18 +292,33 @@ class PartsPage(QWidget):
         self.parts_table.setRowCount(len(parts))
 
         for row, p in enumerate(parts):
-            self.parts_table.setItem(row, 0, QTableWidgetItem(p.name))
-            self.parts_table.setItem(row, 1, QTableWidgetItem(p.article or ''))
-            self.parts_table.setItem(row, 2, QTableWidgetItem(p.category or ''))
+            name_item = QTableWidgetItem(p.name)
+            name_item.setForeground(QColor('#e4e4e7'))
+            self.parts_table.setItem(row, 0, name_item)
+            
+            article_item = QTableWidgetItem(p.article or '')
+            article_item.setForeground(QColor('#e4e4e7'))
+            self.parts_table.setItem(row, 1, article_item)
+            
+            category_item = QTableWidgetItem(p.category or '')
+            category_item.setForeground(QColor('#e4e4e7'))
+            self.parts_table.setItem(row, 2, category_item)
 
             qty_item = QTableWidgetItem(f'{p.quantity:.2f} {p.unit}')
-            if p.quantity <= p.min_quantity:
-                qty_item.setForeground(QColor('#ef4444'))
+            qty_item.setForeground(QColor('#ef4444' if p.quantity <= p.min_quantity else '#e4e4e7'))
             self.parts_table.setItem(row, 3, qty_item)
 
-            self.parts_table.setItem(row, 4, QTableWidgetItem(f'{p.min_quantity:.2f}'))
-            self.parts_table.setItem(row, 5, QTableWidgetItem(f'₸ {p.avg_price:,.2f}'))
-            self.parts_table.setItem(row, 6, QTableWidgetItem(str(p.id)))
+            min_qty_item = QTableWidgetItem(f'{p.min_quantity:.2f}')
+            min_qty_item.setForeground(QColor('#e4e4e7'))
+            self.parts_table.setItem(row, 4, min_qty_item)
+            
+            price_item = QTableWidgetItem(f'₸ {p.avg_price:,.2f}')
+            price_item.setForeground(QColor('#e4e4e7'))
+            self.parts_table.setItem(row, 5, price_item)
+            
+            id_item = QTableWidgetItem(str(p.id))
+            id_item.setForeground(QColor('#e4e4e7'))
+            self.parts_table.setItem(row, 6, id_item)
 
         # Транзакции
         transactions = db.list_part_transactions(self.conn)
@@ -308,6 +346,32 @@ class PartsPage(QWidget):
         row = rows[0].row()
         item = self.parts_table.item(row, 6)
         return int(item.text()) if item else None
+
+    def _show_context_menu(self, pos):
+        """Контекстное меню по правому клику."""
+        row = self.parts_table.rowAt(pos.y())
+        if row < 0:
+            return
+        self.parts_table.selectRow(row)
+        menu = QMenu(self)
+        menu.addAction('✏️ Редактировать', self._edit_part)
+        menu.addAction('🗑️ Удалить', self._delete_part)
+        menu.addAction('💰 Приход/Расход', self._add_transaction)
+        menu.addSeparator()
+        menu.addAction('🖨️ Печать', self._print_part)
+        menu.exec(self.parts_table.viewport().mapToGlobal(pos))
+
+    def _print_part(self):
+        """Печать данных запчасти."""
+        pid = self._get_selected_part_id()
+        if not pid:
+            QMessageBox.information(self, 'Печать', 'Выберите запчасть в таблице')
+            return
+        row = self.parts_table.currentRow()
+        data = [self.parts_table.item(row, c).text() for c in range(7)]
+        QMessageBox.information(self, 'Печать запчасти',
+            f"Название: {data[0]}\nАртикул: {data[1]}\nКатегория: {data[2]}\n"
+            f"Остаток: {data[3]}\nМин.: {data[4]}\nСр. цена: {data[5]}")
 
     def _add_part(self):
         dlg = PartDialog(parent=self)
@@ -340,6 +404,16 @@ class PartsPage(QWidget):
             """, (p.name, p.article, p.category, p.unit, p.quantity,
                   p.min_quantity, p.avg_price, p.notes, p.updated_at, p.id))
             self.conn.commit()
+            self.refresh()
+
+    def _delete_part(self):
+        pid = self._get_selected_part_id()
+        if not pid:
+            QMessageBox.information(self, 'Подсказка', 'Выберите запчасть в таблице')
+            return
+        reply = QMessageBox.question(self, 'Удаление', 'Удалить запчасть в корзину?', QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            db.delete_part(self.conn, pid)
             self.refresh()
 
     def _add_transaction(self):

@@ -15,10 +15,10 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
     QFormLayout, QLineEdit, QSpinBox, QComboBox, QTextEdit,
-    QMessageBox, QAbstractItemView,
+    QMessageBox, QAbstractItemView, QMenu,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QAction
 
 from zavgar_app.models import Vehicle
 from zavgar_app import db
@@ -206,14 +206,23 @@ class VehiclesPage(QWidget):
         add_btn.clicked.connect(self._add_vehicle)
         header.addWidget(add_btn)
 
-        edit_btn = QPushButton('✏️ Редактировать')
+        edit_btn = QPushButton('✏️')
+        edit_btn.setObjectName('actionBtn')
+        edit_btn.setToolTip('Редактировать выбранное авто')
         edit_btn.clicked.connect(self._edit_vehicle)
         header.addWidget(edit_btn)
 
-        del_btn = QPushButton('🗑 Удалить')
-        del_btn.setObjectName('dangerBtn')
+        del_btn = QPushButton('🗑️')
+        del_btn.setObjectName('actionDelete')
+        del_btn.setToolTip('Удалить (в корзину)')
         del_btn.clicked.connect(self._delete_vehicle)
         header.addWidget(del_btn)
+
+        print_btn = QPushButton('🖨️')
+        print_btn.setObjectName('ghostBtn')
+        print_btn.setToolTip('Печать')
+        print_btn.clicked.connect(self._print_vehicle)
+        header.addWidget(print_btn)
 
         layout.addLayout(header)
 
@@ -221,17 +230,19 @@ class VehiclesPage(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels([
-            'Марка/Модель', 'Год', 'Госномер', 'Тип', 'Пробег', 'Водитель', 'Статус', 'ID'
+            'ID', 'Марка/Модель', 'Год', 'Госномер', 'Тип', 'Пробег', 'Водитель', 'Статус'
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(7, QHeaderView.Fixed)
-        self.table.setColumnWidth(7, 40)  # ID скрыт
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+        self.table.setColumnWidth(0, 50)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.table.setAlternatingRowColors(True)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._show_context_menu)
         self.table.doubleClicked.connect(self._edit_vehicle)
 
         layout.addWidget(self.table)
@@ -264,22 +275,20 @@ class VehiclesPage(QWidget):
         self.table.setRowCount(len(filtered))
 
         for row, v in enumerate(filtered):
-            self.table.setItem(row, 0, QTableWidgetItem(f'{v.marka} {v.model}'))
-            self.table.setItem(row, 1, QTableWidgetItem(str(v.year or '')))
-            self.table.setItem(row, 2, QTableWidgetItem(v.gosnomer))
-            self.table.setItem(row, 3, QTableWidgetItem(self.TYPE_LABELS.get(v.vehicle_type, v.vehicle_type)))
-            self.table.setItem(row, 4, QTableWidgetItem(f'{v.current_mileage:,} км'))
+            self.table.setItem(row, 0, QTableWidgetItem(str(v.id)))
+            self.table.setItem(row, 1, QTableWidgetItem(f'{v.marka} {v.model}'))
+            self.table.setItem(row, 2, QTableWidgetItem(str(v.year or '')))
+            self.table.setItem(row, 3, QTableWidgetItem(v.gosnomer))
+            self.table.setItem(row, 4, QTableWidgetItem(self.TYPE_LABELS.get(v.vehicle_type, v.vehicle_type)))
+            self.table.setItem(row, 5, QTableWidgetItem(f'{v.current_mileage:,} км'))
 
             driver_name = self._drivers_map.get(v.assigned_driver_id, '—') if v.assigned_driver_id else '—'
-            self.table.setItem(row, 5, QTableWidgetItem(driver_name))
+            self.table.setItem(row, 6, QTableWidgetItem(driver_name))
 
             status_item = QTableWidgetItem(self.STATUS_LABELS.get(v.status, v.status))
             color = self.STATUS_COLORS.get(v.status, '#6b7280')
             status_item.setForeground(QColor(color))
-            self.table.setItem(row, 6, status_item)
-
-            id_item = QTableWidgetItem(str(v.id))
-            self.table.setItem(row, 7, id_item)
+            self.table.setItem(row, 7, status_item)
 
     def _get_selected_vehicle_id(self) -> Optional[int]:
         """Получить ID выбранного авто."""
@@ -287,7 +296,7 @@ class VehiclesPage(QWidget):
         if not rows:
             return None
         row = rows[0].row()
-        item = self.table.item(row, 7)  # ID в колонке 7
+        item = self.table.item(row, 0)  # ID в колонке 0
         return int(item.text()) if item else None
 
     def _add_vehicle(self):
@@ -317,6 +326,32 @@ class VehiclesPage(QWidget):
             v = dlg.get_vehicle()
             db.update_vehicle(self.conn, v)
             self.refresh()
+
+    def _show_context_menu(self, pos):
+        """Контекстное меню по правому клику."""
+        row = self.table.rowAt(pos.y())
+        if row < 0:
+            return
+        self.table.selectRow(row)
+        menu = QMenu(self)
+        menu.addAction('✏️ Редактировать', self._edit_vehicle)
+        menu.addAction('🗑️ Удалить', self._delete_vehicle)
+        menu.addSeparator()
+        menu.addAction('🖨️ Печать', self._print_vehicle)
+        menu.exec(self.table.viewport().mapToGlobal(pos))
+
+    def _print_vehicle(self):
+        """Печать данных авто."""
+        vid = self._get_selected_vehicle_id()
+        if not vid:
+            QMessageBox.information(self, 'Печать', 'Выберите авто в таблице')
+            return
+        row = self.table.currentRow()
+        data = [self.table.item(row, c).text() for c in range(8)]
+        QMessageBox.information(self, 'Печать авто',
+            f"ID: {data[0]}\nМарка/Модель: {data[1]}\nГод: {data[2]}\n"
+            f"Госномер: {data[3]}\nТип: {data[4]}\nПробег: {data[5]}\n"
+            f"Водитель: {data[6]}\nСтатус: {data[7]}")
 
     def _delete_vehicle(self):
         """Удалить авто."""

@@ -135,7 +135,7 @@ QPushButton#ghostBtn:hover {
 }
 
 /* Inputs */
-QLineEdit, QSpinBox, QDoubleSpinBox {
+QLineEdit, QSpinBox, QDoubleSpinBox, QDateEdit, QTimeEdit, QDateTimeEdit, QTextEdit, QPlainTextEdit {
     background-color: rgba(24,24,37,200);
     color: #e4e4e7;
     border: 1px solid rgba(255,255,255,0.10);
@@ -143,10 +143,69 @@ QLineEdit, QSpinBox, QDoubleSpinBox {
     padding: 10px 14px;
     selection-background-color: rgba(99,102,241,0.5);
 }
-QLineEdit:focus, QSpinBox:focus {
-    border: 1px solid rgba(99,102,241,0.50);
+QLineEdit:focus, QSpinBox:focus, QDateEdit:focus, QTimeEdit:focus, QDateTimeEdit:focus, QTextEdit:focus, QDoubleSpinBox:focus, QPlainTextEdit:focus {
+    border: 1px solid rgba(99,102,241,0.15);
 }
-QLineEdit:hover { border: 1px solid rgba(255,255,255,0.18); }
+QLineEdit:hover, QDateEdit:hover, QTimeEdit:hover { border: 1px solid rgba(255,255,255,0.18); }
+QDateEdit::drop-down, QTimeEdit::drop-down, QDateTimeEdit::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border: none;
+}
+QDateEdit::down-arrow, QTimeEdit::down-arrow, QDateTimeEdit::down-arrow {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #a1a1aa;
+    margin-right: 8px;
+}
+/* Calendar popup */
+QCalendarWidget QWidget#qt_calendar_navigationbar {
+    background-color: rgba(24,24,37,240);
+    color: #e4e4e7;
+}
+QCalendarWidget { outline: none; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; }
+QCalendarWidget QAbstractItemView:focus { outline: none; border: none; }
+QCalendarWidget QAbstractItemView::item:selected { background-color: rgba(99,102,241,0.40); }
+
+/* Context menus */
+QMenu {
+    background-color: #1e1e2e;
+    color: #e4e4e7;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    padding: 4px 0;
+}
+QMenu::item {
+    padding: 8px 24px;
+    background-color: transparent;
+}
+QMenu::item:selected {
+    background-color: rgba(99,102,241,0.40);
+}
+QMenu::separator {
+    height: 1px;
+    background-color: rgba(255,255,255,0.1);
+    margin: 4px 0;
+}
+
+QCalendarWidget QToolButton {
+    color: #e4e4e7;
+    background-color: transparent;
+    border: none;
+    padding: 4px 8px;
+}
+QCalendarWidget QToolButton:hover {
+    background-color: rgba(99,102,241,0.3);
+    border-radius: 4px;
+}
+QCalendarWidget QAbstractItemView {
+    background-color: rgba(24,24,37,240);
+    color: #e4e4e7;
+    selection-background-color: rgba(99,102,241,0.5);
+    selection-color: #ffffff;
+    alternate-background-color: rgba(39,39,56,200);
+}
 
 /* Combobox */
 QComboBox {
@@ -201,6 +260,10 @@ QHeaderView::section {
     font-size: 11px;
     font-weight: 600;
 }
+
+/* Focus — убрать пунктирную рамку */
+*:focus { outline: none; }
+QTableWidget::item:focus, QTableView::item:focus { outline: none; }
 
 /* Scrollbars */
 QScrollBar:vertical {
@@ -284,6 +347,126 @@ QGroupBox {
     padding: 16px;
     padding-top: 28px;
     font-weight: 600;
+}
+
+/* Action buttons (edit / delete) */
+QPushButton#actionBtn {
+    background-color: transparent;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 6px 10px;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 16px;
+}
+QPushButton#actionBtn:hover {
+    background-color: rgba(99,102,241,0.15);
+    border: 1px solid rgba(99,102,241,0.4);
+}
+QPushButton#actionDelete {
+    background-color: transparent;
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 8px;
+    padding: 6px 10px;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 16px;
+    color: #fca5a5;
+}
+QPushButton#actionDelete:hover {
+    background-color: rgba(239,68,68,0.2);
+    border: 1px solid rgba(239,68,68,0.5);
+    color: #fecaca;
+}
+QPushButton#actionRestore {
+    background-color: transparent;
+    border: 1px solid rgba(16,185,129,0.25);
+    border-radius: 8px;
+    padding: 6px 10px;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 16px;
+    color: #6ee7b7;
+}
+QPushButton#actionRestore:hover {
+    background-color: rgba(16,185,129,0.2);
+    border: 1px solid rgba(16,185,129,0.5);
+}
+
+/* Tree widget — dark theme */
+QTreeWidget {
+    background-color: rgba(17,17,27,180);
+    color: #e4e4e7;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    selection-background-color: rgba(99,102,241,0.25);
+    selection-color: #ffffff;
+    alternate-background-color: rgba(24,24,37,100);
+}
+QTreeWidget::item {
+    padding: 8px 12px;
+    border-radius: 6px;
+    color: #e4e4e7;
+}
+QTreeWidget::item:hover {
+    background-color: rgba(255,255,255,0.06);
+}
+QTreeWidget::item:selected {
+    background-color: rgba(99,102,241,0.25);
+    color: #ffffff;
+}
+QTreeWidget::branch {
+    background-color: transparent;
+}
+QTreeWidget QHeaderView::section {
+    background-color: rgba(17,17,27,220);
+    color: #a1a1aa;
+    border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* List items */
+QListWidget {
+    background-color: rgba(17,17,27,180);
+    alternate-background-color: rgba(24,24,37,100);
+    color: #e4e4e7;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+}
+QListWidget::item {
+    padding: 6px 10px;
+    border-radius: 4px;
+}
+QListWidget::item:selected {
+    background-color: rgba(99,102,241,0.25);
+}
+
+/* Dialogs and message boxes */
+QDialog, QMessageBox {
+    background-color: rgba(24,24,37,240);
+    color: #e4e4e7;
+}
+QDialog QLabel, QMessageBox QLabel {
+    color: #e4e4e7;
+    background: transparent;
+}
+QMessageBox QPushButton {
+    min-width: 80px;
+    padding: 8px 16px;
+}
+
+/* Form labels in dialogs */
+QFormLayout QLabel {
+    color: #e4e4e7;
+    font-weight: 500;
+}
+
+/* Table item text color enforcement */
+QTableWidget::item, QTableView::item {
+    color: #e4e4e7;
 }
 """
 
@@ -377,6 +560,84 @@ QPushButton#primaryBtn {
 }
 QPushButton#primaryBtn:hover { background-color: #818cf8; }
 QPushButton#primaryBtn:pressed { background-color: #4f46e5; }
+
+/* Action buttons (edit / delete) — light theme */
+QPushButton#actionBtn {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 6px 10px;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 16px;
+}
+QPushButton#actionBtn:hover {
+    background-color: #ede9fe;
+    border: 1px solid #c4b5fd;
+}
+QPushButton#actionDelete {
+    background-color: #ffffff;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 6px 10px;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 16px;
+    color: #dc2626;
+}
+QPushButton#actionDelete:hover {
+    background-color: #fee2e2;
+    border: 1px solid #fca5a5;
+    color: #991b1b;
+}
+QPushButton#actionRestore {
+    background-color: #ffffff;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 6px 10px;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 16px;
+    color: #059669;
+}
+QPushButton#actionRestore:hover {
+    background-color: #d1fae5;
+    border: 1px solid #6ee7b7;
+}
+
+/* Tree widget — light theme */
+QTreeWidget {
+    background-color: #ffffff;
+    color: #18181b;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    selection-background-color: #ede9fe;
+    selection-color: #18181b;
+}
+QTreeWidget::item {
+    padding: 8px 12px;
+    border-radius: 6px;
+    color: #18181b;
+}
+QTreeWidget::item:hover {
+    background-color: #f3f4f6;
+}
+QTreeWidget::item:selected {
+    background-color: #ede9fe;
+    color: #18181b;
+}
+QTreeWidget::branch {
+    background-color: transparent;
+}
+QTreeWidget QHeaderView::section {
+    background-color: #f9fafb;
+    color: #6b7280;
+    border: none;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
 
 QPushButton#dangerBtn {
     background-color: #fef2f2;

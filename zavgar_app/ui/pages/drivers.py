@@ -3,6 +3,7 @@ ui/pages/drivers.py — Раздел "Водители"
 =======================================
 
 Таблица водителей + форма добавления/редактирования.
+Toolbar-based actions (add/edit/delete/print) + right-click context menu.
 """
 
 from __future__ import annotations
@@ -12,10 +13,10 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
     QFormLayout, QLineEdit, QComboBox, QDateEdit, QTextEdit,
-    QMessageBox,
+    QMessageBox, QMenu,
 )
 from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QAction
 
 from ... import db
 from ...models import Driver
@@ -53,30 +54,64 @@ class DriversPage(QWidget):
         layout.setContentsMargins(32, 24, 32, 24)
         layout.setSpacing(20)
 
-        # Заголовок
+        # Заголовок + тулбар
         header = QHBoxLayout()
         title = QLabel("👤 Водители")
         title.setObjectName("pageTitle")
         header.addWidget(title)
         header.addStretch()
 
-        add_btn = QPushButton("➕ Добавить водителя")
-        add_btn.setObjectName("primaryBtn")
-        add_btn.clicked.connect(self._add_driver)
-        header.addWidget(add_btn)
+        # Toolbar buttons
+        self.btn_add = QPushButton("➕ Добавить")
+        self.btn_add.setObjectName("primaryBtn")
+        self.btn_add.clicked.connect(self._add_driver)
+        header.addWidget(self.btn_add)
+
+        self.btn_edit = QPushButton("✏️ Редактировать")
+        self.btn_edit.setObjectName("actionBtn")
+        self.btn_edit.clicked.connect(self._edit_selected_row)
+        header.addWidget(self.btn_edit)
+
+        self.btn_delete = QPushButton("🗑️ Удалить")
+        self.btn_delete.setObjectName("actionDelete")
+        self.btn_delete.clicked.connect(self._delete_selected_row)
+        header.addWidget(self.btn_delete)
+
+        self.btn_print = QPushButton("🖨️ Печать")
+        self.btn_print.setObjectName("ghostBtn")
+        self.btn_print.clicked.connect(self._print_selected)
+        header.addWidget(self.btn_print)
+
         layout.addLayout(header)
 
         # Таблица
         self.table = QTableWidget()
-        self.table.setColumnCount(5)
+        self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels([
-            "ФИО", "Телефон", "Водительское удостоверение", "Статус", "Действия"
+            "ФИО", "Телефон", "Водительское удостоверение", "Статус"
         ])
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionsClickable(False)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(44)
+        self.table.setShowGrid(False)
+        self.table.doubleClicked.connect(self._edit_selected)
+
+        # Context menu
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._show_context_menu)
+
+        # Selection-based toolbar updates
+        self.table.selectionModel().selectionChanged.connect(self._update_toolbar)
+
         layout.addWidget(self.table)
+
+        # Initial toolbar state (no selection)
+        self._update_toolbar()
 
     def refresh(self):
         """Перезагрузить данные."""
@@ -87,32 +122,41 @@ class DriversPage(QWidget):
             self.table.setItem(row, 0, QTableWidgetItem(driver.fio))
             self.table.setItem(row, 1, QTableWidgetItem(driver.phone or ""))
             self.table.setItem(row, 2, QTableWidgetItem(driver.license_number or ""))
-            
+
             # Статус с цветом
             status_item = QTableWidgetItem(self.STATUS_LABELS.get(driver.status, driver.status))
             color = self.STATUS_COLORS.get(driver.status, '#6b7280')
             status_item.setForeground(QColor(color))
             self.table.setItem(row, 3, status_item)
 
-            # Кнопки действий
-            actions = QWidget()
-            actions_layout = QHBoxLayout(actions)
-            actions_layout.setContentsMargins(4, 4, 4, 4)
-            actions_layout.setSpacing(8)
+    def _get_selected_driver(self) -> Driver | None:
+        """Вернуть Driver для выбранной строки или None."""
+        row = self.table.currentRow()
+        if row < 0:
+            return None
+        drivers = db.list_drivers(self.conn)
+        if 0 <= row < len(drivers):
+            return drivers[row]
+        return None
 
-            edit_btn = QPushButton("✏️")
-            edit_btn.setFixedSize(32, 32)
-            edit_btn.setToolTip("Редактировать")
-            edit_btn.clicked.connect(lambda checked, d=driver: self._edit_driver(d))
-            actions_layout.addWidget(edit_btn)
+    def _edit_selected(self, index):
+        """Редактировать выбранную запись (двойной клик)."""
+        row = index.row()
+        drivers = db.list_drivers(self.conn)
+        if 0 <= row < len(drivers):
+            self._edit_driver(drivers[row])
 
-            del_btn = QPushButton("🗑️")
-            del_btn.setFixedSize(32, 32)
-            del_btn.setToolTip("Удалить")
-            del_btn.clicked.connect(lambda checked, d=driver: self._delete_driver(d))
-            actions_layout.addWidget(del_btn)
+    def _edit_selected_row(self):
+        """Редактировать выбранную запись (toolbar / context menu)."""
+        driver = self._get_selected_driver()
+        if driver:
+            self._edit_driver(driver)
 
-            self.table.setCellWidget(row, 4, actions)
+    def _delete_selected_row(self):
+        """Удалить выбранную запись (toolbar / context menu)."""
+        driver = self._get_selected_driver()
+        if driver:
+            self._delete_driver(driver)
 
     def _add_driver(self):
         """Открыть диалог добавления водителя."""
@@ -128,7 +172,6 @@ class DriversPage(QWidget):
 
     def _delete_driver(self, driver: Driver):
         """Удалить водителя."""
-        from PySide6.QtWidgets import QMessageBox
         reply = QMessageBox.question(
             self, "Удаление",
             f"Удалить водителя {driver.fio}?",
@@ -137,6 +180,51 @@ class DriversPage(QWidget):
         if reply == QMessageBox.Yes:
             db.delete_driver(self.conn, driver.id)
             self.refresh()
+
+    def _update_toolbar(self):
+        """Включить/выключить кнопки тулбара в зависимости от выделения."""
+        has_selection = self.table.currentRow() >= 0
+        self.btn_edit.setEnabled(has_selection)
+        self.btn_delete.setEnabled(has_selection)
+        self.btn_print.setEnabled(has_selection)
+
+    def _show_context_menu(self, pos):
+        """Показать контекстное меню при правом клике на строку."""
+        row = self.table.rowAt(pos.y())
+        if row < 0:
+            return
+        self.table.selectRow(row)
+
+        menu = QMenu(self)
+
+        edit_action = QAction("✏️ Редактировать", self)
+        edit_action.triggered.connect(self._edit_selected_row)
+        menu.addAction(edit_action)
+
+        delete_action = QAction("🗑️ Удалить", self)
+        delete_action.triggered.connect(self._delete_selected_row)
+        menu.addAction(delete_action)
+
+        menu.addSeparator()
+
+        print_action = QAction("🖨️ Печать", self)
+        print_action.triggered.connect(self._print_selected)
+        menu.addAction(print_action)
+
+        menu.exec(self.table.viewport().mapToGlobal(pos))
+
+    def _print_selected(self):
+        """Печать данных выбранного водителя (заглушка)."""
+        driver = self._get_selected_driver()
+        if not driver:
+            return
+        info = (
+            f"ФИО: {driver.fio}\n"
+            f"Телефон: {driver.phone or '—'}\n"
+            f"Водительское удостоверение: {driver.license_number or '—'}\n"
+            f"Статус: {self.STATUS_LABELS.get(driver.status, driver.status)}"
+        )
+        QMessageBox.information(self, "Печать — Водитель", info)
 
 
 class DriverDialog(QDialog):

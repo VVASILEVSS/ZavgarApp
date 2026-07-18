@@ -6,10 +6,11 @@ from datetime import datetime, date
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QDialog, QFormLayout, QDateEdit,
-    QTimeEdit, QComboBox, QDoubleSpinBox, QTextEdit, QMessageBox, QSpinBox
+    QTimeEdit, QComboBox, QDoubleSpinBox, QTextEdit, QMessageBox, QSpinBox,
+    QMenu
 )
 from PySide6.QtCore import Qt, QDate, QTime
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QAction
 
 from zavgar_app import db
 from zavgar_app.models import Timesheet, Driver
@@ -42,6 +43,8 @@ class TimesheetDialog(QDialog):
         
         # Водитель
         self.driver_combo = QComboBox()
+        self.driver_combo.setEditable(True)
+        self.driver_combo.setInsertPolicy(QComboBox.NoInsert)
         for d in drivers:
             self.driver_combo.addItem(d.fio, d.id)
         form.addRow("Водитель:", self.driver_combo)
@@ -166,15 +169,49 @@ class TimesheetsPage(QWidget):
 
         layout.addLayout(header)
 
+        # Toolbar действий
+        toolbar = QHBoxLayout()
+        toolbar.setSpacing(8)
+
+        self.edit_btn = QPushButton("✏️ Редактировать")
+        self.edit_btn.setObjectName("actionBtn")
+        self.edit_btn.setEnabled(False)
+        self.edit_btn.clicked.connect(self._edit_selected_toolbar)
+        toolbar.addWidget(self.edit_btn)
+
+        self.delete_btn = QPushButton("🗑️ Удалить")
+        self.delete_btn.setObjectName("actionDelete")
+        self.delete_btn.setEnabled(False)
+        self.delete_btn.clicked.connect(self._delete_selected_toolbar)
+        toolbar.addWidget(self.delete_btn)
+
+        self.print_btn = QPushButton("🖨️ Печать")
+        self.print_btn.setObjectName("actionBtn")
+        self.print_btn.setEnabled(False)
+        self.print_btn.clicked.connect(self._print_selected)
+        toolbar.addWidget(self.print_btn)
+
+        toolbar.addStretch()
+        layout.addLayout(toolbar)
+
         # Таблица
         self.table = QTableWidget()
-        self.table.setColumnCount(7)
+        self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
-            "Дата", "Водитель", "Статус", "Начало", "Окончание", "Часов", "Действия"
+            "Дата", "Водитель", "Статус", "Начало", "Окончание", "Часов"
         ])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Fixed)
-        self.table.setColumnWidth(6, 120)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(44)
+        self.table.setShowGrid(False)
+        self.table.setAlternatingRowColors(True)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.doubleClicked.connect(self._edit_selected)
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._show_context_menu)
+        self.table.itemSelectionChanged.connect(self._update_toolbar)
         layout.addWidget(self.table)
 
         self.refresh()
@@ -187,7 +224,10 @@ class TimesheetsPage(QWidget):
         self.table.setRowCount(len(timesheets))
         
         for row, ts in enumerate(timesheets):
-            self.table.setItem(row, 0, QTableWidgetItem(ts.work_date))
+            # Store timesheet ID in first column item for retrieval
+            date_item = QTableWidgetItem(ts.work_date)
+            date_item.setData(Qt.UserRole, ts.id)
+            self.table.setItem(row, 0, date_item)
             self.table.setItem(row, 1, QTableWidgetItem(drivers.get(ts.driver_id, "?")))
             
             status_item = QTableWidgetItem(TimesheetDialog.STATUS_MAP.get(ts.status, ts.status))
@@ -198,23 +238,56 @@ class TimesheetsPage(QWidget):
             self.table.setItem(row, 3, QTableWidgetItem(ts.start_time or ""))
             self.table.setItem(row, 4, QTableWidgetItem(ts.end_time or ""))
             self.table.setItem(row, 5, QTableWidgetItem(f"{ts.hours:.1f}"))
-            
-            # Кнопки действий
-            actions_widget = QWidget()
-            actions_layout = QHBoxLayout(actions_widget)
-            actions_layout.setContentsMargins(4, 4, 4, 4)
-            
-            edit_btn = QPushButton("✏️")
-            edit_btn.setFixedSize(32, 32)
-            edit_btn.clicked.connect(lambda checked, t=ts: self._edit_timesheet(t))
-            actions_layout.addWidget(edit_btn)
-            
-            del_btn = QPushButton("🗑️")
-            del_btn.setFixedSize(32, 32)
-            del_btn.clicked.connect(lambda checked, tid=ts.id: self._delete_timesheet(tid))
-            actions_layout.addWidget(del_btn)
-            
-            self.table.setCellWidget(row, 6, actions_widget)
+
+        self._update_toolbar()
+
+    def _get_selected_timesheet(self) -> Timesheet | None:
+        """Получить Timesheet по выбранной строке."""
+        rows = self.table.selectionModel().selectedRows()
+        if not rows:
+            return None
+        row = rows[0].row()
+        timesheets = db.list_timesheets(self.conn)
+        if 0 <= row < len(timesheets):
+            return timesheets[row]
+        return None
+
+    def _get_selected_timesheet_ids(self) -> list[int]:
+        """Получить ID всех выбранных строк."""
+        rows = sorted(set(idx.row() for idx in self.table.selectionModel().selectedRows()))
+        timesheets = db.list_timesheets(self.conn)
+        return [timesheets[r].id for r in rows if 0 <= r < len(timesheets)]
+
+    def _update_toolbar(self):
+        """Обновить состояние кнопок toolbar."""
+        has_selection = bool(self.table.selectionModel().selectedRows())
+        self.edit_btn.setEnabled(has_selection)
+        self.delete_btn.setEnabled(has_selection)
+        self.print_btn.setEnabled(has_selection)
+
+    def _show_context_menu(self, pos):
+        """Контекстное меню по правому клику на строке."""
+        row = self.table.rowAt(pos.y())
+        if row < 0:
+            return
+        self.table.selectRow(row)
+
+        menu = QMenu(self)
+        edit_action = QAction("✏️ Редактировать", self)
+        edit_action.triggered.connect(self._edit_selected_toolbar)
+        menu.addAction(edit_action)
+
+        delete_action = QAction("🗑️ Удалить", self)
+        delete_action.triggered.connect(self._delete_selected_toolbar)
+        menu.addAction(delete_action)
+
+        menu.addSeparator()
+
+        print_action = QAction("🖨️ Печать", self)
+        print_action.triggered.connect(self._print_selected)
+        menu.addAction(print_action)
+
+        menu.exec(self.table.viewport().mapToGlobal(pos))
 
     def _add_timesheet(self):
         """Добавить запись."""
@@ -238,6 +311,35 @@ class TimesheetsPage(QWidget):
             db.update_timesheet(self.conn, ts)
             self.refresh()
 
+    def _edit_selected(self, index):
+        """Редактировать выбранную запись (двойной клик)."""
+        row = index.row()
+        timesheets = db.list_timesheets(self.conn)
+        if 0 <= row < len(timesheets):
+            self._edit_timesheet(timesheets[row])
+
+    def _edit_selected_toolbar(self):
+        """Редактировать выбранную запись (toolbar/контекстное меню)."""
+        ts = self._get_selected_timesheet()
+        if ts:
+            self._edit_timesheet(ts)
+
+    def _delete_selected_toolbar(self):
+        """Удалить выбранные записи (toolbar/контекстное меню)."""
+        ids = self._get_selected_timesheet_ids()
+        if not ids:
+            return
+        count = len(ids)
+        reply = QMessageBox.question(
+            self, "Подтверждение",
+            f"Удалить {count} запис{'ь' if count == 1 else 'и'} из табеля?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            for tid in ids:
+                db.delete_timesheet(self.conn, tid)
+            self.refresh()
+
     def _delete_timesheet(self, timesheet_id: int):
         """Удалить запись."""
         reply = QMessageBox.question(
@@ -248,3 +350,53 @@ class TimesheetsPage(QWidget):
         if reply == QMessageBox.Yes:
             db.delete_timesheet(self.conn, timesheet_id)
             self.refresh()
+
+    def _print_selected(self):
+        """Печать выбранных записей табеля."""
+        from PySide6.QtPrintSupport import QPrinter, QPrintDialog
+        from PySide6.QtGui import QTextDocument
+
+        ids = self._get_selected_timesheet_ids()
+        if not ids:
+            return
+
+        timesheets = db.list_timesheets(self.conn)
+        drivers = {d.id: d.fio for d in db.list_drivers(self.conn)}
+        selected = [ts for ts in timesheets if ts.id in ids]
+
+        # Build HTML table for printing
+        rows_html = ""
+        for ts in selected:
+            status_label = TimesheetDialog.STATUS_MAP.get(ts.status, ts.status)
+            rows_html += (
+                f"<tr>"
+                f"<td>{ts.work_date}</td>"
+                f"<td>{drivers.get(ts.driver_id, '?')}</td>"
+                f"<td>{status_label}</td>"
+                f"<td>{ts.start_time or ''}</td>"
+                f"<td>{ts.end_time or ''}</td>"
+                f"<td>{ts.hours:.1f}</td>"
+                f"</tr>"
+            )
+
+        html = f"""
+        <h2>Табель учёта рабочего времени</h2>
+        <p>Дата печати: {date.today().strftime('%d.%m.%Y')}</p>
+        <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
+            <thead>
+                <tr style="background:#f0f0f0;">
+                    <th>Дата</th><th>Водитель</th><th>Статус</th>
+                    <th>Начало</th><th>Окончание</th><th>Часов</th>
+                </tr>
+            </thead>
+            <tbody>{rows_html}</tbody>
+        </table>
+        """
+
+        doc = QTextDocument()
+        doc.setHtml(html)
+
+        printer = QPrinter(QPrinter.HighResolution)
+        dlg = QPrintDialog(printer, self)
+        if dlg.exec() == QPrintDialog.Accepted:
+            doc.print_(printer)

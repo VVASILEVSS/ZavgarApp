@@ -6,10 +6,11 @@ from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QDialog, QFormLayout, QDateEdit,
-    QTimeEdit, QComboBox, QSpinBox, QLineEdit, QTextEdit, QMessageBox
+    QTimeEdit, QComboBox, QSpinBox, QLineEdit, QTextEdit, QMessageBox,
+    QMenu
 )
 from PySide6.QtCore import Qt, QDate, QTime
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QAction
 
 from zavgar_app import db
 from zavgar_app.models import TripLog, Driver, Vehicle
@@ -212,17 +213,49 @@ class TripLogsPage(QWidget):
 
         layout.addLayout(header)
 
+        # Панель инструментов
+        toolbar = QHBoxLayout()
+        toolbar.setSpacing(8)
+
+        self.edit_btn = QPushButton("✏️ Редактировать")
+        self.edit_btn.setObjectName("actionBtn")
+        self.edit_btn.clicked.connect(self._edit_selected_toolbar)
+        toolbar.addWidget(self.edit_btn)
+
+        self.delete_btn = QPushButton("🗑️ Удалить")
+        self.delete_btn.setObjectName("actionDelete")
+        self.delete_btn.clicked.connect(self._delete_selected)
+        toolbar.addWidget(self.delete_btn)
+
+        self.print_btn = QPushButton("🖨️ Печать")
+        self.print_btn.setObjectName("ghostBtn")
+        self.print_btn.clicked.connect(self._print_selected)
+        toolbar.addWidget(self.print_btn)
+
+        toolbar.addStretch()
+        layout.addLayout(toolbar)
+
         # Таблица
         self.table = QTableWidget()
-        self.table.setColumnCount(9)
+        self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels([
-            "Дата", "Водитель", "Автомобиль", "Откуда", "Куда", "Пробег", "Статус", "Цель", "Действия"
+            "Дата", "Водитель", "Автомобиль", "Откуда", "Куда", "Пробег", "Статус", "Цель"
         ])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(8, QHeaderView.Fixed)
-        self.table.setColumnWidth(8, 120)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(44)
+        self.table.setShowGrid(False)
+        self.table.setAlternatingRowColors(True)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.doubleClicked.connect(self._edit_selected)
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._show_context_menu)
+        self.table.itemSelectionChanged.connect(self._update_toolbar)
         layout.addWidget(self.table)
 
+        self._update_toolbar()
         self.refresh()
 
     def refresh(self):
@@ -247,23 +280,88 @@ class TripLogsPage(QWidget):
             self.table.setItem(row, 6, status_item)
             
             self.table.setItem(row, 7, QTableWidgetItem(trip.purpose))
-            
-            # Кнопки действий
-            actions_widget = QWidget()
-            actions_layout = QHBoxLayout(actions_widget)
-            actions_layout.setContentsMargins(4, 4, 4, 4)
-            
-            edit_btn = QPushButton("✏️")
-            edit_btn.setFixedSize(32, 32)
-            edit_btn.clicked.connect(lambda checked, t=trip: self._edit_trip(t))
-            actions_layout.addWidget(edit_btn)
-            
-            del_btn = QPushButton("🗑️")
-            del_btn.setFixedSize(32, 32)
-            del_btn.clicked.connect(lambda checked, tid=trip.id: self._delete_trip(tid))
-            actions_layout.addWidget(del_btn)
-            
-            self.table.setCellWidget(row, 8, actions_widget)
+
+        self._update_toolbar()
+
+    def _get_selected_trip(self):
+        """Получить выбранный путевой лист из таблицы."""
+        row = self.table.currentRow()
+        if row < 0:
+            return None
+        trips = db.list_trip_logs(self.conn)
+        if 0 <= row < len(trips):
+            return trips[row]
+        return None
+
+    def _edit_selected(self, index):
+        """Редактировать выбранную запись (двойной клик)."""
+        row = index.row()
+        trips = db.list_trip_logs(self.conn)
+        if 0 <= row < len(trips):
+            self._edit_trip(trips[row])
+
+    def _edit_selected_toolbar(self):
+        """Редактировать выбранную запись (кнопка тулбара)."""
+        trip = self._get_selected_trip()
+        if trip:
+            self._edit_trip(trip)
+        else:
+            QMessageBox.information(self, "Информация", "Выберите запись для редактирования")
+
+    def _delete_selected(self):
+        """Удалить выбранную запись."""
+        trip = self._get_selected_trip()
+        if trip:
+            self._delete_trip(trip.id)
+        else:
+            QMessageBox.information(self, "Информация", "Выберите запись для удаления")
+
+    def _show_context_menu(self, position):
+        """Показать контекстное меню при правом клике."""
+        index = self.table.indexAt(position)
+        if not index.isValid():
+            return
+
+        menu = QMenu(self)
+
+        edit_action = QAction("✏️ Редактировать", self)
+        edit_action.triggered.connect(self._edit_selected_toolbar)
+        menu.addAction(edit_action)
+
+        delete_action = QAction("🗑️ Удалить", self)
+        delete_action.triggered.connect(self._delete_selected)
+        menu.addAction(delete_action)
+
+        menu.addSeparator()
+
+        print_action = QAction("🖨️ Печать", self)
+        print_action.triggered.connect(self._print_selected)
+        menu.addAction(print_action)
+
+        menu.exec(self.table.viewport().mapToGlobal(position))
+
+    def _update_toolbar(self):
+        """Обновить состояние кнопок панели инструментов."""
+        has_selection = self.table.currentRow() >= 0
+        self.edit_btn.setEnabled(has_selection)
+        self.delete_btn.setEnabled(has_selection)
+        self.print_btn.setEnabled(has_selection)
+
+    def _print_selected(self):
+        """Печать выбранного путевого листа."""
+        trip = self._get_selected_trip()
+        if not trip:
+            QMessageBox.information(self, "Информация", "Выберите запись для печати")
+            return
+
+        # TODO: Implement actual print logic (QPrinter / PDF export)
+        QMessageBox.information(
+            self, "Печать",
+            f"Печать путевого листа:\n\n"
+            f"Дата: {trip.trip_date}\n"
+            f"Маршрут: {trip.route_from} → {trip.route_to}\n"
+            f"Пробег: {trip.distance_km or 0} км"
+        )
 
     def _add_trip(self):
         """Добавить путевой лист."""

@@ -22,7 +22,7 @@ from .models import Vehicle, Driver, Part, PartTransaction, MaintenanceSchedule,
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def open_db(db_path: str | Path) -> sqlite3.Connection:
@@ -58,6 +58,8 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
             _migrate_v0_to_v1(conn)
         if current < 2:
             _migrate_v1_to_v2(conn)
+        if current < 3:
+            _migrate_v2_to_v3(conn)
         conn.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
         conn.commit()
 
@@ -230,6 +232,82 @@ def _migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
     logger.info("Migration v1→v2 completed")
 
 
+def _migrate_v2_to_v3(conn: sqlite3.Connection) -> None:
+    """Корзина: soft-delete для всех таблиц."""
+    
+    # Добавляем deleted_at в основные таблицы
+    tables = [
+        'vehicles', 'drivers', 'parts', 'maintenance_schedules',
+        'maintenance_records', 'timesheets', 'trip_logs'
+    ]
+    
+    for table in tables:
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN deleted_at TEXT")
+            logger.info(f"Added deleted_at to {table}")
+        except sqlite3.OperationalError as e:
+            if "duplicate column name" not in str(e).lower():
+                raise
+            logger.info(f"deleted_at already exists in {table}")
+    
+    logger.info("Migration v2→v3 completed (trash/soft-delete)")
+
+
+# ════════════════════════════════════════════════════════════════════
+# Soft-Delete / Trash
+# ════════════════════════════════════════════════════════════════════
+
+def soft_delete(conn: sqlite3.Connection, table: str, record_id: int) -> None:
+    """Soft-delete: помечаем запись как удалённую."""
+    deleted_at = datetime.now().isoformat()
+    conn.execute(f"UPDATE {table} SET deleted_at = ? WHERE id = ?", (deleted_at, record_id))
+    conn.commit()
+    logger.info(f"Soft-deleted {table}#{record_id}")
+
+
+def restore_from_trash(conn: sqlite3.Connection, table: str, record_id: int) -> None:
+    """Восстановить запись из корзины."""
+    conn.execute(f"UPDATE {table} SET deleted_at = NULL WHERE id = ?", (record_id,))
+    conn.commit()
+    logger.info(f"Restored {table}#{record_id}")
+
+
+def hard_delete(conn: sqlite3.Connection, table: str, record_id: int) -> None:
+    """Окончательно удалить запись."""
+    conn.execute(f"DELETE FROM {table} WHERE id = ?", (record_id,))
+    conn.commit()
+    logger.info(f"Hard-deleted {table}#{record_id}")
+
+
+def list_trash(conn: sqlite3.Connection, table: str) -> list[dict]:
+    """Список записей в корзине."""
+    cursor = conn.execute(f"SELECT * FROM {table} WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC")
+    return [dict(row) for row in cursor.fetchall()]
+
+
+def cleanup_old_trash(conn: sqlite3.Connection, months: int = 6) -> int:
+    """Удалить записи из корзины старше N месяцев."""
+    from datetime import datetime, timedelta
+    cutoff = (datetime.now() - timedelta(days=months * 30)).isoformat()
+    
+    tables = [
+        'vehicles', 'drivers', 'parts', 'maintenance_schedules',
+        'maintenance_records', 'timesheets', 'trip_logs'
+    ]
+    
+    total_deleted = 0
+    for table in tables:
+        cursor = conn.execute(
+            f"DELETE FROM {table} WHERE deleted_at IS NOT NULL AND deleted_at < ?",
+            (cutoff,)
+        )
+        total_deleted += cursor.rowcount
+    
+    conn.commit()
+    logger.info(f"Cleaned up {total_deleted} old trash records (older than {months} months)")
+    return total_deleted
+
+
 # ════════════════════════════════════════════════════════════════════
 # CRUD: Автомобили
 # ════════════════════════════════════════════════════════════════════
@@ -258,12 +336,20 @@ def get_vehicle(conn: sqlite3.Connection, vehicle_id: int) -> Optional[Vehicle]:
     return Vehicle.from_db_row(tuple(row)) if row else None
 
 
-def list_vehicles(conn: sqlite3.Connection, status: Optional[str] = None) -> list[Vehicle]:
-    """Список автомобилей (опционально по статусу)."""
+def list_vehicles(conn: sqlite3.Connection, status: Optional[str] = None, include_deleted: bool = False) -> list[Vehicle]:
+    """Список автомобилей (опционально по статусу, по умолчанию без удалённых)."""
+    query = "SELECT * FROM vehicles WHERE 1=1"
+    params = []
+    
+    if not include_deleted:
+        query += " AND (deleted_at IS NULL OR deleted_at = '')"
+    
     if status:
-        cursor = conn.execute("SELECT * FROM vehicles WHERE status = ? ORDER BY marka, model", (status,))
-    else:
-        cursor = conn.execute("SELECT * FROM vehicles ORDER BY marka, model")
+        query += " AND status = ?"
+        params.append(status)
+    
+    query += " ORDER BY marka, model"
+    cursor = conn.execute(query, params)
     return [Vehicle.from_db_row(tuple(row)) for row in cursor.fetchall()]
 
 
@@ -291,9 +377,8 @@ def update_vehicle(conn: sqlite3.Connection, vehicle: Vehicle) -> None:
 
 
 def delete_vehicle(conn: sqlite3.Connection, vehicle_id: int) -> None:
-    """Удалить автомобиль."""
-    conn.execute("DELETE FROM vehicles WHERE id = ?", (vehicle_id,))
-    conn.commit()
+    """Удалить автомобиль (soft-delete в корзину)."""
+    soft_delete(conn, 'vehicles', vehicle_id)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -321,15 +406,26 @@ def get_driver(conn: sqlite3.Connection, driver_id: int) -> Optional[Driver]:
     return Driver.from_db_row(tuple(row)) if row else None
 
 
-def list_drivers(conn: sqlite3.Connection) -> list[Driver]:
-    """Список водителей."""
-    cursor = conn.execute("SELECT * FROM drivers ORDER BY fio")
+def list_drivers(conn: sqlite3.Connection, status: Optional[str] = None, include_deleted: bool = False) -> list[Driver]:
+    """Список водителей (опционально по статусу, по умолчанию без удалённых)."""
+    query = "SELECT * FROM drivers WHERE 1=1"
+    params = []
+    
+    if not include_deleted:
+        query += " AND (deleted_at IS NULL OR deleted_at = '')"
+    
+    if status:
+        query += " AND status = ?"
+        params.append(status)
+    
+    query += " ORDER BY fio"
+    cursor = conn.execute(query, params)
     return [Driver.from_db_row(tuple(row)) for row in cursor.fetchall()]
 
 
 def count_drivers(conn: sqlite3.Connection) -> int:
     """Количество водителей."""
-    cursor = conn.execute("SELECT COUNT(*) FROM drivers")
+    cursor = conn.execute("SELECT COUNT(*) FROM drivers WHERE deleted_at IS NULL")
     return cursor.fetchone()[0]
 
 
@@ -347,9 +443,8 @@ def update_driver(conn: sqlite3.Connection, driver: Driver) -> None:
 
 
 def delete_driver(conn: sqlite3.Connection, driver_id: int) -> None:
-    """Удалить водителя."""
-    conn.execute("DELETE FROM drivers WHERE id = ?", (driver_id,))
-    conn.commit()
+    """Удалить водителя (soft-delete в корзину)."""
+    soft_delete(conn, 'drivers', driver_id)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -376,12 +471,20 @@ def get_part(conn: sqlite3.Connection, part_id: int) -> Optional[Part]:
     return Part.from_db_row(tuple(row)) if row else None
 
 
-def list_parts(conn: sqlite3.Connection, category: Optional[str] = None) -> list[Part]:
-    """Список запчастей."""
+def list_parts(conn: sqlite3.Connection, category: Optional[str] = None, include_deleted: bool = False) -> list[Part]:
+    """Список запчастей (опционально по категории, по умолчанию без удалённых)."""
+    query = "SELECT * FROM parts WHERE 1=1"
+    params = []
+    
+    if not include_deleted:
+        query += " AND (deleted_at IS NULL OR deleted_at = '')"
+    
     if category:
-        cursor = conn.execute("SELECT * FROM parts WHERE category = ? ORDER BY name", (category,))
-    else:
-        cursor = conn.execute("SELECT * FROM parts ORDER BY name")
+        query += " AND category = ?"
+        params.append(category)
+    
+    query += " ORDER BY name"
+    cursor = conn.execute(query, params)
     return [Part.from_db_row(tuple(row)) for row in cursor.fetchall()]
 
 
@@ -442,13 +545,27 @@ def create_maintenance_schedule(conn: sqlite3.Connection, schedule: MaintenanceS
     return cursor.lastrowid
 
 
-def list_maintenance_schedules(conn: sqlite3.Connection, vehicle_id: Optional[int] = None) -> list[MaintenanceSchedule]:
-    """Список графиков ТО."""
+def list_maintenance_schedules(conn: sqlite3.Connection, vehicle_id: Optional[int] = None, include_deleted: bool = False) -> list[MaintenanceSchedule]:
+    """Список графиков ТО (по умолчанию без удалённых)."""
+    query = "SELECT * FROM maintenance_schedules WHERE 1=1"
+    params = []
+    
+    if not include_deleted:
+        query += " AND (deleted_at IS NULL OR deleted_at = '')"
+    
     if vehicle_id:
-        cursor = conn.execute("SELECT * FROM maintenance_schedules WHERE vehicle_id = ?", (vehicle_id,))
+        query += " AND vehicle_id = ?"
+        params.append(vehicle_id)
     else:
-        cursor = conn.execute("SELECT * FROM maintenance_schedules ORDER BY next_due_km")
+        query += " ORDER BY next_due_km"
+    
+    cursor = conn.execute(query, params)
     return [MaintenanceSchedule.from_db_row(tuple(row)) for row in cursor.fetchall()]
+
+
+def delete_maintenance_schedule(conn: sqlite3.Connection, schedule_id: int) -> None:
+    """Удалить график ТО (soft-delete в корзину)."""
+    soft_delete(conn, 'maintenance_schedules', schedule_id)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -469,13 +586,26 @@ def create_maintenance_record(conn: sqlite3.Connection, record: MaintenanceRecor
     return cursor.lastrowid
 
 
-def list_maintenance_records(conn: sqlite3.Connection, vehicle_id: Optional[int] = None) -> list[MaintenanceRecord]:
-    """Список записей ТО."""
+def list_maintenance_records(conn: sqlite3.Connection, vehicle_id: Optional[int] = None, include_deleted: bool = False) -> list[MaintenanceRecord]:
+    """Список записей ТО (по умолчанию без удалённых)."""
+    query = "SELECT * FROM maintenance_records WHERE 1=1"
+    params = []
+    
+    if not include_deleted:
+        query += " AND (deleted_at IS NULL OR deleted_at = '')"
+    
     if vehicle_id:
-        cursor = conn.execute("SELECT * FROM maintenance_records WHERE vehicle_id = ? ORDER BY service_date DESC", (vehicle_id,))
-    else:
-        cursor = conn.execute("SELECT * FROM maintenance_records ORDER BY service_date DESC")
+        query += " AND vehicle_id = ?"
+        params.append(vehicle_id)
+    
+    query += " ORDER BY service_date DESC"
+    cursor = conn.execute(query, params)
     return [MaintenanceRecord.from_db_row(tuple(row)) for row in cursor.fetchall()]
+
+
+def delete_maintenance_record(conn: sqlite3.Connection, record_id: int) -> None:
+    """Удалить запись ТО (soft-delete в корзину)."""
+    soft_delete(conn, 'maintenance_records', record_id)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -496,26 +626,23 @@ def create_timesheet(conn: sqlite3.Connection, timesheet: Timesheet) -> int:
     return cursor.lastrowid
 
 
-def list_timesheets(conn: sqlite3.Connection, driver_id: Optional[int] = None, 
-                    month: Optional[str] = None) -> list[Timesheet]:
-    """Список записей табеля. month формат: 'YYYY-MM'."""
-    if driver_id and month:
-        cursor = conn.execute(
-            "SELECT * FROM timesheets WHERE driver_id = ? AND work_date LIKE ? ORDER BY work_date",
-            (driver_id, f"{month}%")
-        )
-    elif driver_id:
-        cursor = conn.execute(
-            "SELECT * FROM timesheets WHERE driver_id = ? ORDER BY work_date DESC",
-            (driver_id,)
-        )
-    elif month:
-        cursor = conn.execute(
-            "SELECT * FROM timesheets WHERE work_date LIKE ? ORDER BY work_date",
-            (f"{month}%",)
-        )
-    else:
-        cursor = conn.execute("SELECT * FROM timesheets ORDER BY work_date DESC")
+def list_timesheets(conn: sqlite3.Connection, driver_id: Optional[int] = None, month: Optional[str] = None, include_deleted: bool = False) -> list[Timesheet]:
+    """Список записей табеля (по умолчанию без удалённых)."""
+    query = "SELECT * FROM timesheets WHERE 1=1"
+    params = []
+    
+    if not include_deleted:
+        query += " AND (deleted_at IS NULL OR deleted_at = '')"
+    
+    if driver_id:
+        query += " AND driver_id = ?"
+        params.append(driver_id)
+    if month:
+        query += " AND work_date LIKE ?"
+        params.append(f"{month}%")
+    
+    query += " ORDER BY work_date DESC"
+    cursor = conn.execute(query, params)
     return [Timesheet.from_row(tuple(row)) for row in cursor.fetchall()]
 
 
@@ -534,9 +661,8 @@ def update_timesheet(conn: sqlite3.Connection, timesheet: Timesheet) -> None:
 
 
 def delete_timesheet(conn: sqlite3.Connection, timesheet_id: int) -> None:
-    """Удалить запись из табеля."""
-    conn.execute("DELETE FROM timesheets WHERE id = ?", (timesheet_id,))
-    conn.commit()
+    """Удалить запись из табеля (soft-delete в корзину)."""
+    soft_delete(conn, 'timesheets', timesheet_id)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -567,10 +693,14 @@ def get_trip_log(conn: sqlite3.Connection, trip_id: int) -> Optional[TripLog]:
 
 
 def list_trip_logs(conn: sqlite3.Connection, driver_id: Optional[int] = None,
-                   vehicle_id: Optional[int] = None, month: Optional[str] = None) -> list[TripLog]:
-    """Список путевых листов."""
+                   vehicle_id: Optional[int] = None, month: Optional[str] = None,
+                   include_deleted: bool = False) -> list[TripLog]:
+    """Список путевых листов (по умолчанию без удалённых)."""
     query = "SELECT * FROM trip_logs WHERE 1=1"
     params = []
+    
+    if not include_deleted:
+        query += " AND (deleted_at IS NULL OR deleted_at = '')"
     
     if driver_id:
         query += " AND driver_id = ?"
@@ -603,7 +733,6 @@ def update_trip_log(conn: sqlite3.Connection, trip: TripLog) -> None:
 
 
 def delete_trip_log(conn: sqlite3.Connection, trip_id: int) -> None:
-    """Удалить путевой лист."""
-    conn.execute("DELETE FROM trip_logs WHERE id = ?", (trip_id,))
-    conn.commit()
+    """Удалить путевой лист (soft-delete в корзину)."""
+    soft_delete(conn, 'trip_logs', trip_id)
 
