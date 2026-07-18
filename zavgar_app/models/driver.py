@@ -2,8 +2,11 @@
 models/driver.py — Модель "Водитель"
 """
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
+
+DriverStatus = Literal['active', 'vacation', 'sick_leave', 'business_trip', 'suspended', 'fired']
 
 
 @dataclass

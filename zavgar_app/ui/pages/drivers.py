@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 from PySide6.QtCore import Qt, QDate
+from PySide6.QtGui import QColor
 
 from ... import db
 from ...models import Driver
@@ -49,9 +50,9 @@ class DriversPage(QWidget):
 
         # Таблица
         self.table = QTableWidget()
-        self.table.setColumnCount(7)
+        self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels([
-            "ID", "ФИО", "Телефон", "№ прав", "Категория", "Срок прав", "Действия"
+            "ФИО", "Телефон", "Водительское удостоверение", "Статус", "Действия"
         ])
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -65,12 +66,15 @@ class DriversPage(QWidget):
         self.table.setRowCount(len(drivers))
 
         for row, driver in enumerate(drivers):
-            self.table.setItem(row, 0, QTableWidgetItem(str(driver.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(driver.fio))
-            self.table.setItem(row, 2, QTableWidgetItem(driver.phone or ""))
-            self.table.setItem(row, 3, QTableWidgetItem(driver.license_number or ""))
-            self.table.setItem(row, 4, QTableWidgetItem(driver.license_category or ""))
-            self.table.setItem(row, 5, QTableWidgetItem(driver.license_expiry or ""))
+            self.table.setItem(row, 0, QTableWidgetItem(driver.fio))
+            self.table.setItem(row, 1, QTableWidgetItem(driver.phone or ""))
+            self.table.setItem(row, 2, QTableWidgetItem(driver.license_number or ""))
+            
+            # Статус с цветом
+            status_item = QTableWidgetItem(self.STATUS_LABELS.get(driver.status, driver.status))
+            color = self.STATUS_COLORS.get(driver.status, '#6b7280')
+            status_item.setForeground(QColor(color))
+            self.table.setItem(row, 3, status_item)
 
             # Кнопки действий
             actions = QWidget()
@@ -90,7 +94,7 @@ class DriversPage(QWidget):
             del_btn.clicked.connect(lambda checked, d=driver: self._delete_driver(d))
             actions_layout.addWidget(del_btn)
 
-            self.table.setCellWidget(row, 6, actions)
+            self.table.setCellWidget(row, 4, actions)
 
     def _add_driver(self):
         """Открыть диалог добавления водителя."""
@@ -168,6 +172,12 @@ class DriverDialog(QDialog):
         self.hire_date_edit.setDate(QDate.currentDate())
         self.hire_date_edit.setDisplayFormat("yyyy-MM-dd")
         form.addRow("Дата найма:", self.hire_date_edit)
+        
+        # Статус
+        self.status_combo = QComboBox()
+        for key, label in DriversPage.STATUS_LABELS.items():
+            self.status_combo.addItem(label, key)
+        form.addRow("Статус:", self.status_combo)
 
         # Заметки
         self.notes_edit = QTextEdit()
@@ -207,6 +217,10 @@ class DriverDialog(QDialog):
 
         if driver.hire_date:
             self.hire_date_edit.setDate(QDate.fromString(driver.hire_date, "yyyy-MM-dd"))
+        
+        status_idx = self.status_combo.findData(driver.status)
+        if status_idx >= 0:
+            self.status_combo.setCurrentIndex(status_idx)
 
         self.notes_edit.setPlainText(driver.notes or "")
 
@@ -229,7 +243,7 @@ class DriverDialog(QDialog):
                 license_category=self.category_combo.currentText(),
                 license_expiry=self.license_expiry_edit.date().toString("yyyy-MM-dd"),
                 hire_date=self.hire_date_edit.date().toString("yyyy-MM-dd"),
-                status=self.driver.status,
+                status=self.status_combo.currentData() or "active",
                 notes=self.notes_edit.toPlainText().strip(),
                 created_at=self.driver.created_at,
             )
@@ -243,6 +257,7 @@ class DriverDialog(QDialog):
                 license_category=self.category_combo.currentText(),
                 license_expiry=self.license_expiry_edit.date().toString("yyyy-MM-dd"),
                 hire_date=self.hire_date_edit.date().toString("yyyy-MM-dd"),
+                status=self.status_combo.currentData() or "active",
                 notes=self.notes_edit.toPlainText().strip(),
                 created_at=now,
             )

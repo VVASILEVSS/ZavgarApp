@@ -18,11 +18,11 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from .models import Vehicle, Driver, Part, PartTransaction, MaintenanceSchedule, MaintenanceRecord
+from .models import Vehicle, Driver, Part, PartTransaction, MaintenanceSchedule, MaintenanceRecord, Timesheet, TripLog
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def open_db(db_path: str | Path) -> sqlite3.Connection:
@@ -54,7 +54,10 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         current = row[0]
     
     if current < SCHEMA_VERSION:
-        _migrate_v0_to_v1(conn)
+        if current < 1:
+            _migrate_v0_to_v1(conn)
+        if current < 2:
+            _migrate_v1_to_v2(conn)
         conn.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
         conn.commit()
 
@@ -174,6 +177,57 @@ def _migrate_v0_to_v1(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_maint_records_vehicle ON maintenance_records(vehicle_id)")
     
     logger.info("Migration v0→v1 completed")
+
+
+def _migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
+    """Добавить табель учёта и путевые листы."""
+    
+    # Табель учёта рабочего времени
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS timesheets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            driver_id INTEGER NOT NULL REFERENCES drivers(id),
+            work_date TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'work',
+            start_time TEXT,
+            end_time TEXT,
+            hours REAL NOT NULL DEFAULT 8.0,
+            notes TEXT,
+            created_at TEXT NOT NULL
+        )
+    """)
+    
+    # Путевые листы
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS trip_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            driver_id INTEGER NOT NULL REFERENCES drivers(id),
+            vehicle_id INTEGER NOT NULL REFERENCES vehicles(id),
+            trip_date TEXT NOT NULL,
+            start_time TEXT,
+            end_time TEXT,
+            start_mileage INTEGER NOT NULL DEFAULT 0,
+            end_mileage INTEGER,
+            distance_km INTEGER,
+            route_from TEXT NOT NULL DEFAULT '',
+            route_to TEXT NOT NULL DEFAULT '',
+            purpose TEXT NOT NULL DEFAULT '',
+            passengers TEXT,
+            cargo TEXT,
+            status TEXT NOT NULL DEFAULT 'planned',
+            notes TEXT,
+            created_at TEXT NOT NULL
+        )
+    """)
+    
+    # Индексы
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_timesheets_driver ON timesheets(driver_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_timesheets_date ON timesheets(work_date)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_trip_logs_driver ON trip_logs(driver_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_trip_logs_vehicle ON trip_logs(vehicle_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_trip_logs_date ON trip_logs(trip_date)")
+    
+    logger.info("Migration v1→v2 completed")
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -422,3 +476,134 @@ def list_maintenance_records(conn: sqlite3.Connection, vehicle_id: Optional[int]
     else:
         cursor = conn.execute("SELECT * FROM maintenance_records ORDER BY service_date DESC")
     return [MaintenanceRecord.from_db_row(tuple(row)) for row in cursor.fetchall()]
+
+
+# ════════════════════════════════════════════════════════════════════
+# CRUD: Табель учёта рабочего времени
+# ════════════════════════════════════════════════════════════════════
+
+def create_timesheet(conn: sqlite3.Connection, timesheet: Timesheet) -> int:
+    """Создать запись в табеле."""
+    cursor = conn.execute("""
+        INSERT INTO timesheets (driver_id, work_date, status, start_time, end_time, hours, notes, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        timesheet.driver_id, timesheet.work_date, timesheet.status,
+        timesheet.start_time, timesheet.end_time, timesheet.hours,
+        timesheet.notes, timesheet.created_at,
+    ))
+    conn.commit()
+    return cursor.lastrowid
+
+
+def list_timesheets(conn: sqlite3.Connection, driver_id: Optional[int] = None, 
+                    month: Optional[str] = None) -> list[Timesheet]:
+    """Список записей табеля. month формат: 'YYYY-MM'."""
+    if driver_id and month:
+        cursor = conn.execute(
+            "SELECT * FROM timesheets WHERE driver_id = ? AND work_date LIKE ? ORDER BY work_date",
+            (driver_id, f"{month}%")
+        )
+    elif driver_id:
+        cursor = conn.execute(
+            "SELECT * FROM timesheets WHERE driver_id = ? ORDER BY work_date DESC",
+            (driver_id,)
+        )
+    elif month:
+        cursor = conn.execute(
+            "SELECT * FROM timesheets WHERE work_date LIKE ? ORDER BY work_date",
+            (f"{month}%",)
+        )
+    else:
+        cursor = conn.execute("SELECT * FROM timesheets ORDER BY work_date DESC")
+    return [Timesheet.from_row(tuple(row)) for row in cursor.fetchall()]
+
+
+def update_timesheet(conn: sqlite3.Connection, timesheet: Timesheet) -> None:
+    """Обновить запись в табеле."""
+    conn.execute("""
+        UPDATE timesheets SET driver_id=?, work_date=?, status=?, start_time=?, 
+            end_time=?, hours=?, notes=?
+        WHERE id=?
+    """, (
+        timesheet.driver_id, timesheet.work_date, timesheet.status,
+        timesheet.start_time, timesheet.end_time, timesheet.hours,
+        timesheet.notes, timesheet.id,
+    ))
+    conn.commit()
+
+
+def delete_timesheet(conn: sqlite3.Connection, timesheet_id: int) -> None:
+    """Удалить запись из табеля."""
+    conn.execute("DELETE FROM timesheets WHERE id = ?", (timesheet_id,))
+    conn.commit()
+
+
+# ════════════════════════════════════════════════════════════════════
+# CRUD: Путевые листы
+# ════════════════════════════════════════════════════════════════════
+
+def create_trip_log(conn: sqlite3.Connection, trip: TripLog) -> int:
+    """Создать путевой лист."""
+    cursor = conn.execute("""
+        INSERT INTO trip_logs (driver_id, vehicle_id, trip_date, start_time, end_time,
+            start_mileage, end_mileage, distance_km, route_from, route_to, purpose,
+            passengers, cargo, status, notes, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        trip.driver_id, trip.vehicle_id, trip.trip_date, trip.start_time, trip.end_time,
+        trip.start_mileage, trip.end_mileage, trip.distance_km, trip.route_from, trip.route_to,
+        trip.purpose, trip.passengers, trip.cargo, trip.status, trip.notes, trip.created_at,
+    ))
+    conn.commit()
+    return cursor.lastrowid
+
+
+def get_trip_log(conn: sqlite3.Connection, trip_id: int) -> Optional[TripLog]:
+    """Получить путевой лист по id."""
+    cursor = conn.execute("SELECT * FROM trip_logs WHERE id = ?", (trip_id,))
+    row = cursor.fetchone()
+    return TripLog.from_row(tuple(row)) if row else None
+
+
+def list_trip_logs(conn: sqlite3.Connection, driver_id: Optional[int] = None,
+                   vehicle_id: Optional[int] = None, month: Optional[str] = None) -> list[TripLog]:
+    """Список путевых листов."""
+    query = "SELECT * FROM trip_logs WHERE 1=1"
+    params = []
+    
+    if driver_id:
+        query += " AND driver_id = ?"
+        params.append(driver_id)
+    if vehicle_id:
+        query += " AND vehicle_id = ?"
+        params.append(vehicle_id)
+    if month:
+        query += " AND trip_date LIKE ?"
+        params.append(f"{month}%")
+    
+    query += " ORDER BY trip_date DESC, start_time DESC"
+    cursor = conn.execute(query, params)
+    return [TripLog.from_row(tuple(row)) for row in cursor.fetchall()]
+
+
+def update_trip_log(conn: sqlite3.Connection, trip: TripLog) -> None:
+    """Обновить путевой лист."""
+    conn.execute("""
+        UPDATE trip_logs SET driver_id=?, vehicle_id=?, trip_date=?, start_time=?, end_time=?,
+            start_mileage=?, end_mileage=?, distance_km=?, route_from=?, route_to=?, purpose=?,
+            passengers=?, cargo=?, status=?, notes=?
+        WHERE id=?
+    """, (
+        trip.driver_id, trip.vehicle_id, trip.trip_date, trip.start_time, trip.end_time,
+        trip.start_mileage, trip.end_mileage, trip.distance_km, trip.route_from, trip.route_to,
+        trip.purpose, trip.passengers, trip.cargo, trip.status, trip.notes, trip.id,
+    ))
+    conn.commit()
+
+
+def delete_trip_log(conn: sqlite3.Connection, trip_id: int) -> None:
+    """Удалить путевой лист."""
+    conn.execute("DELETE FROM trip_logs WHERE id = ?", (trip_id,))
+    conn.commit()
+

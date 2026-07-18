@@ -60,6 +60,9 @@ class Sidebar(QFrame):
             ('Водители', '👤'),
             ('Склад запчастей', '🔧'),
             ('ТО и обслуживание', '🛠️'),
+            ('Табель учёта', '📅'),
+            ('Путевые листы', '🚗'),
+            ('Календарь', '🗓️'),
             ('Отчёты', '📈'),
         ]
         for text, icon in nav_items:
@@ -199,6 +202,9 @@ class MainWindow(QMainWindow):
         from zavgar_app.ui.pages.parts import PartsPage
         from zavgar_app.ui.pages.drivers import DriversPage
         from zavgar_app.ui.pages.maintenance import MaintenancePage
+        from zavgar_app.ui.pages.timesheets import TimesheetsPage
+        from zavgar_app.ui.pages.trip_logs import TripLogsPage
+        from zavgar_app.ui.pages.calendar_page import CalendarPage
         from zavgar_app.ui.pages.reports import ReportsPage
 
         self.content = QStackedWidget()
@@ -208,6 +214,9 @@ class MainWindow(QMainWindow):
             DriversPage(conn) if conn else PlaceholderPage('👤 Водители'),
             PartsPage(conn) if conn else PlaceholderPage('🔧 Склад запчастей'),
             MaintenancePage(conn) if conn else PlaceholderPage('🛠️ ТО и обслуживание'),
+            TimesheetsPage(conn) if conn else PlaceholderPage('📅 Табель учёта'),
+            TripLogsPage(conn) if conn else PlaceholderPage('🚗 Путевые листы'),
+            CalendarPage(conn) if conn else PlaceholderPage('🗓️ Календарь'),
             ReportsPage(conn) if conn else PlaceholderPage('📈 Отчёты'),
         ]
         for p in self.pages:
