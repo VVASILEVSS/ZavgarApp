@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
-    QTableWidgetItem, QHeaderView, QDialog, QFormLayout, QDateEdit,
+    QTableWidgetItem, QHeaderView, QDialog, QFormLayout,
     QTimeEdit, QComboBox, QSpinBox, QLineEdit, QTextEdit, QMessageBox,
     QMenu, QAbstractSpinBox
 )
@@ -207,7 +207,7 @@ class TripLogsPage(QWidget):
         header.addWidget(title)
         header.addStretch()
 
-        add_btn = QPushButton("➕ Добавить путевой лист")
+        add_btn = QPushButton("+ Добавить путевой лист")
         add_btn.setObjectName("primaryBtn")
         add_btn.clicked.connect(self._add_trip)
         header.addWidget(add_btn)
@@ -439,9 +439,9 @@ class TripLogsPage(QWidget):
                     <th style="padding: 5px; border: 1px solid #000;">Расход по норме</th>
                 </tr>
                 <tr>
-                    <td style="padding: 5px; border: 1px solid #000; text-align: center;">{trip.fuel_start or '—'}</td>
-                    <td style="padding: 5px; border: 1px solid #000; text-align: center;">{trip.fuel_issued or '—'}</td>
-                    <td style="padding: 5px; border: 1px solid #000; text-align: center;">{trip.fuel_end or '—'}</td>
+                    <td style="padding: 5px; border: 1px solid #000; text-align: center;">—</td>
+                    <td style="padding: 5px; border: 1px solid #000; text-align: center;">—</td>
+                    <td style="padding: 5px; border: 1px solid #000; text-align: center;">—</td>
                     <td style="padding: 5px; border: 1px solid #000; text-align: center;">—</td>
                 </tr>
             </table>
@@ -467,12 +467,12 @@ class TripLogsPage(QWidget):
                 <tr>
                     <td style="padding: 10px; border: 1px solid #000; width: 50%;">
                         <b>Выезд:</b><br/>
-                        Время: {trip.departure_time or '—'}<br/>
+                        Время: {trip.start_time or '—'}<br/>
                         Подпись водителя: ___________
                     </td>
                     <td style="padding: 10px; border: 1px solid #000;">
                         <b>Возвращение:</b><br/>
-                        Время: {trip.return_time or '—'}<br/>
+                        Время: {trip.end_time or '—'}<br/>
                         Подпись водителя: ___________
                     </td>
                 </tr>

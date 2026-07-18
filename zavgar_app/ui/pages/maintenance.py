@@ -11,10 +11,11 @@ from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
-    QFormLayout, QLineEdit, QComboBox, QDateEdit, QSpinBox,
+    QFormLayout, QLineEdit, QComboBox, QSpinBox,
     QDoubleSpinBox, QTextEdit, QMessageBox, QTabWidget,
 )
 from PySide6.QtCore import Qt, QDate
+from zavgar_app.ui.widgets.triangle_spinbox import TriangleDateEdit
 
 from ... import db
 from ...models import MaintenanceSchedule, MaintenanceRecord, Vehicle
@@ -61,7 +62,7 @@ class MaintenancePage(QWidget):
         header = QHBoxLayout()
         header.addStretch()
         
-        add_schedule_btn = QPushButton("➕")
+        add_schedule_btn = QPushButton("+")
         add_schedule_btn.setObjectName("primaryBtn")
         add_schedule_btn.setToolTip("Добавить график ТО")
         add_schedule_btn.clicked.connect(self._add_schedule)
@@ -120,7 +121,7 @@ class MaintenancePage(QWidget):
         header2 = QHBoxLayout()
         header2.addStretch()
         
-        add_record_btn = QPushButton("➕")
+        add_record_btn = QPushButton("+")
         add_record_btn.setObjectName("primaryBtn")
         add_record_btn.setToolTip("Добавить запись ТО")
         add_record_btn.clicked.connect(self._add_record)
@@ -412,12 +413,16 @@ class MaintenancePage(QWidget):
             return
         row = rows[0].row()
         rid = int(self.records_table.item(row, 0).text())
-        # TODO: реализовать редактирование
-        QMessageBox.information(self, "Info", f"Редактирование записи #{rid}")
+        records = db.list_maintenance_records(self.conn)
+        record = next((r for r in records if r.id == rid), None)
+        if record:
+            self._edit_record_item(record)
 
     def _edit_record_item(self, record):
         """Редактировать запись ТО (из кнопки действий)."""
-        QMessageBox.information(self, "Info", f"Редактирование записи #{record.id}")
+        dialog = RecordDialog(self.conn, record=record, parent=self)
+        if dialog.exec():
+            self._load_data()
 
     def _delete_record_item(self, record_id: int):
         """Удалить запись ТО (из кнопки действий)."""
@@ -513,10 +518,8 @@ class ScheduleDialog(QDialog):
         form.addRow("Последнее ТО (пробег):", self.last_km_spin)
 
         # Последнее ТО (дата)
-        self.last_date_edit = QDateEdit()
-        self.last_date_edit.setCalendarPopup(True)
+        self.last_date_edit = TriangleDateEdit()
         self.last_date_edit.setDate(QDate.currentDate())
-        self.last_date_edit.setDisplayFormat("yyyy-MM-dd")
         form.addRow("Последнее ТО (дата):", self.last_date_edit)
 
         # Заметки
@@ -622,10 +625,11 @@ class ScheduleDialog(QDialog):
 class RecordDialog(QDialog):
     """Диалог добавления записи ТО."""
 
-    def __init__(self, conn, parent=None):
+    def __init__(self, conn, record=None, parent=None):
         super().__init__(parent)
         self.conn = conn
-        self.setWindowTitle("Добавить запись ТО")
+        self.record = record
+        self.setWindowTitle("Редактировать запись ТО" if record else "Добавить запись ТО")
         self.setMinimumWidth(450)
         self._setup_ui()
 
@@ -634,10 +638,11 @@ class RecordDialog(QDialog):
         form = QFormLayout()
 
         # Дата
-        self.date_edit = QDateEdit()
-        self.date_edit.setCalendarPopup(True)
-        self.date_edit.setDate(QDate.currentDate())
-        self.date_edit.setDisplayFormat("yyyy-MM-dd")
+        self.date_edit = TriangleDateEdit()
+        if self.record:
+            self.date_edit.setDate(QDate.fromString(self.record.service_date, "yyyy-MM-dd"))
+        else:
+            self.date_edit.setDate(QDate.currentDate())
         form.addRow("Дата:", self.date_edit)
 
         # Автомобиль
@@ -647,18 +652,28 @@ class RecordDialog(QDialog):
         vehicles = db.list_vehicles(self.conn)
         for v in vehicles:
             self.vehicle_combo.addItem(v.full_name(), v.id)
+        if self.record:
+            idx = self.vehicle_combo.findData(self.record.vehicle_id)
+            if idx >= 0:
+                self.vehicle_combo.setCurrentIndex(idx)
         form.addRow("Автомобиль:", self.vehicle_combo)
 
         # Тип ТО
         self.type_combo = QComboBox()
         for key, name in MAINTENANCE_TYPES.items():
             self.type_combo.addItem(name, key)
+        if self.record:
+            idx = self.type_combo.findData(self.record.maintenance_type)
+            if idx >= 0:
+                self.type_combo.setCurrentIndex(idx)
         form.addRow("Тип ТО:", self.type_combo)
 
         # Пробег
         self.mileage_spin = QSpinBox()
         self.mileage_spin.setRange(0, 1000000)
         self.mileage_spin.setSuffix(" км")
+        if self.record and self.record.mileage:
+            self.mileage_spin.setValue(self.record.mileage)
         form.addRow("Пробег:", self.mileage_spin)
 
         # Стоимость
@@ -666,11 +681,15 @@ class RecordDialog(QDialog):
         self.cost_spin.setRange(0, 1000000)
         self.cost_spin.setDecimals(2)
         self.cost_spin.setPrefix("₽ ")
+        if self.record and self.record.cost:
+            self.cost_spin.setValue(self.record.cost)
         form.addRow("Стоимость:", self.cost_spin)
 
         # Примечания
         self.notes_edit = QTextEdit()
         self.notes_edit.setMaximumHeight(100)
+        if self.record and self.record.notes:
+            self.notes_edit.setPlainText(self.record.notes)
         form.addRow("Примечания:", self.notes_edit)
 
         layout.addLayout(form)
@@ -700,10 +719,28 @@ class RecordDialog(QDialog):
         record = MaintenanceRecord(
             vehicle_id=vehicle_id,
             maintenance_type=self.type_combo.currentData(),
-            mileage=self.mileage_spin.value(),
             service_date=self.date_edit.date().toString("yyyy-MM-dd"),
-            cost=self.cost_spin.value() if self.cost_spin.value() > 0 else None,
-            notes=self.notes_edit.toPlainText().strip(),
+            mileage=self.mileage_spin.value(),
+            cost=self.cost_spin.value(),
+            notes=self.notes_edit.toPlainText()
         )
-        db.create_maintenance_record(self.conn, record)
+        
+        if self.record:
+            # Обновление существующей записи
+            record.id = self.record.id
+            self.conn.execute("""
+                UPDATE maintenance_records 
+                SET vehicle_id=?, maintenance_type=?, service_date=?, mileage=?, cost=?, notes=?
+                WHERE id=?
+            """, (record.vehicle_id, record.maintenance_type, record.service_date,
+                  record.mileage, record.cost, record.notes, record.id))
+        else:
+            # Создание новой записи
+            self.conn.execute("""
+                INSERT INTO maintenance_records (vehicle_id, maintenance_type, service_date, mileage, cost, notes)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (record.vehicle_id, record.maintenance_type, record.service_date,
+                  record.mileage, record.cost, record.notes))
+        self.conn.commit()
+        
         self.accept()

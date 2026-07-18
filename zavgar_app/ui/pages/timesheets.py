@@ -5,12 +5,13 @@ from __future__ import annotations
 from datetime import datetime, date
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
-    QTableWidgetItem, QHeaderView, QDialog, QFormLayout, QDateEdit,
+    QTableWidgetItem, QHeaderView, QDialog, QFormLayout,
     QTimeEdit, QComboBox, QDoubleSpinBox, QTextEdit, QMessageBox, QSpinBox,
     QMenu
 )
 from PySide6.QtCore import Qt, QDate, QTime
 from PySide6.QtGui import QColor, QAction
+from zavgar_app.ui.widgets.triangle_spinbox import TriangleTimeEdit, TriangleSpinBox, TriangleDateEdit
 
 from zavgar_app import db
 from zavgar_app.models import Timesheet, Driver
@@ -50,8 +51,7 @@ class TimesheetDialog(QDialog):
         form.addRow("Водитель:", self.driver_combo)
         
         # Дата
-        self.date_edit = QDateEdit()
-        self.date_edit.setCalendarPopup(True)
+        self.date_edit = TriangleDateEdit()
         self.date_edit.setDate(QDate.currentDate())
         form.addRow("Дата:", self.date_edit)
         
@@ -62,20 +62,20 @@ class TimesheetDialog(QDialog):
         form.addRow("Статус:", self.status_combo)
         
         # Время начала
-        self.start_time_edit = QTimeEdit()
+        self.start_time_edit = TriangleTimeEdit()
         self.start_time_edit.setTime(QTime(8, 0))
         form.addRow("Начало:", self.start_time_edit)
         
         # Время окончания
-        self.end_time_edit = QTimeEdit()
+        self.end_time_edit = TriangleTimeEdit()
         self.end_time_edit.setTime(QTime(17, 0))
         form.addRow("Окончание:", self.end_time_edit)
         
         # Часы
-        self.hours_spin = QDoubleSpinBox()
+        self.hours_spin = TriangleSpinBox()
         self.hours_spin.setRange(0, 24)
-        self.hours_spin.setValue(8.0)
-        self.hours_spin.setSingleStep(0.5)
+        self.hours_spin.setValue(8)
+        self.hours_spin.setSingleStep(1)
         form.addRow("Часов:", self.hours_spin)
         
         # Заметки
@@ -116,7 +116,7 @@ class TimesheetDialog(QDialog):
             if timesheet.end_time:
                 self.end_time_edit.setTime(QTime.fromString(timesheet.end_time, "HH:mm"))
             
-            self.hours_spin.setValue(timesheet.hours)
+            self.hours_spin.setValue(int(timesheet.hours))
             self.notes_edit.setPlainText(timesheet.notes or "")
     
     def get_timesheet(self) -> Timesheet:
@@ -162,12 +162,35 @@ class TimesheetsPage(QWidget):
         header.addWidget(title)
         header.addStretch()
 
-        add_btn = QPushButton("➕ Добавить запись")
+        add_btn = QPushButton("+ Добавить запись")
         add_btn.setObjectName("primaryBtn")
         add_btn.clicked.connect(self._add_timesheet)
         header.addWidget(add_btn)
 
         layout.addLayout(header)
+
+        # Поиск с автоподбором
+        search_layout = QHBoxLayout()
+        from PySide6.QtWidgets import QLineEdit
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("🔍 Поиск по водителю...")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.textChanged.connect(self._filter_table)
+        search_layout.addWidget(self.search_input)
+        
+        # Период статистики
+        search_layout.addWidget(QLabel("Период:"))
+        self.period_combo = QComboBox()
+        self.period_combo.addItems(["День", "Месяц", "Год"])
+        self.period_combo.setCurrentIndex(1)
+        search_layout.addWidget(self.period_combo)
+        
+        self.stats_btn = QPushButton("📊 Статистика")
+        self.stats_btn.clicked.connect(self._show_driver_stats)
+        self.stats_btn.setEnabled(False)
+        search_layout.addWidget(self.stats_btn)
+        
+        layout.addLayout(search_layout)
 
         # Toolbar действий
         toolbar = QHBoxLayout()
@@ -219,22 +242,172 @@ class TimesheetsPage(QWidget):
         from zavgar_app.utils.column_settings import restore_column_widths
         restore_column_widths(self.table, "timesheets")
 
+        # Сводка по водителям
+        summary_label = QLabel("📊 Сводка по водителям")
+        summary_label.setStyleSheet("font-size: 14px; font-weight: 700; margin-top: 16px;")
+        layout.addWidget(summary_label)
+        
+        self.summary_table = QTableWidget()
+        self.summary_table.setColumnCount(7)
+        self.summary_table.setHorizontalHeaderLabels([
+            "Водитель", "Рабочих часов", "Рабочих дней", "Выходных", "Больничных", "Отпуск", "Командировок"
+        ])
+        self.summary_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        for col in range(1, 7):
+            self.summary_table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        self.summary_table.verticalHeader().setVisible(False)
+        self.summary_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.summary_table.setAlternatingRowColors(True)
+        self.summary_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.summary_table.setMaximumHeight(200)
+        layout.addWidget(self.summary_table)
+
         self._update_toolbar()
         self.refresh()
     
+    def _filter_table(self, text: str):
+        """Фильтровать таблицу по тексту поиска."""
+        text = text.strip().lower()
+        
+        for row in range(self.table.rowCount()):
+            match = False
+            for col in range(self.table.columnCount()):
+                item = self.table.item(row, col)
+                if item and text in item.text().lower():
+                    match = True
+                    break
+            self.table.setRowHidden(row, not match)
+        
+        # Активировать кнопку статистики если есть текст
+        self.stats_btn.setEnabled(bool(text))
+        self._update_completer()
+    
+    def _show_driver_stats(self):
+        """Показать статистику по водителю за выбранный период."""
+        driver_name = self.search_input.text().strip()
+        if not driver_name:
+            return
+        
+        period = self.period_combo.currentIndex()  # 0=день, 1=месяц, 2=год
+        
+        # Найти водителя
+        drivers = db.list_drivers(self.conn)
+        driver = None
+        for d in drivers:
+            if driver_name.lower() in d.fio.lower():
+                driver = d
+                break
+        
+        if not driver:
+            QMessageBox.information(self, "Не найден", f"Водитель '{driver_name}' не найден")
+            return
+        
+        # Собрать статистику
+        timesheets = db.list_timesheets(self.conn)
+        driver_ts = [ts for ts in timesheets if ts.driver_id == driver.id]
+        
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        
+        if period == 0:  # День
+            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = start_date + timedelta(days=1)
+            period_name = f"день {now.strftime('%d.%m.%Y')}"
+        elif period == 1:  # Месяц
+            start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            if now.month == 12:
+                end_date = start_date.replace(year=now.year+1, month=1)
+            else:
+                end_date = start_date.replace(month=now.month+1)
+            period_name = f"месяц {now.strftime('%B %Y')}"
+        else:  # Год
+            start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            end_date = start_date.replace(year=now.year+1)
+            period_name = f"год {now.year}"
+        
+        # Фильтр по дате
+        filtered = []
+        for ts in driver_ts:
+            ts_date = datetime.fromisoformat(ts.work_date)
+            if start_date <= ts_date < end_date:
+                filtered.append(ts)
+        
+        # Подсчёт статистики
+        stats = {'work': 0, 'day_off': 0, 'sick': 0, 'vacation': 0, 'business_trip': 0}
+        total_hours = 0
+        
+        for ts in filtered:
+            stats[ts.status] += 1
+            if ts.status == 'work':
+                total_hours += ts.hours
+        
+        # Показать диалог
+        from PySide6.QtWidgets import QTextEdit
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"Статистика: {driver.fio}")
+        dlg.setMinimumSize(500, 400)
+        layout = QVBoxLayout(dlg)
+        
+        text = QTextEdit()
+        text.setReadOnly(True)
+        text.setHtml(f"""
+        <h2>{driver.fio}</h2>
+        <p><b>Период:</b> {period_name}</p>
+        <hr>
+        <table>
+        <tr><td>✅ Рабочих дней:</td><td><b>{stats['work']}</b></td></tr>
+        <tr><td>⏱️ Отработано часов:</td><td><b>{total_hours} ч</b></td></tr>
+        <tr><td>📅 Выходных:</td><td><b>{stats['day_off']}</b></td></tr>
+        <tr><td>🏥 Больничных:</td><td><b>{stats['sick']}</b></td></tr>
+        <tr><td>🏖️ Отпуск:</td><td><b>{stats['vacation']}</b></td></tr>
+        <tr><td>✈️ Командировки:</td><td><b>{stats['business_trip']}</b></td></tr>
+        </table>
+        """)
+        layout.addWidget(text)
+        
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        print_btn = QPushButton("🖨️ Печать")
+        print_btn.clicked.connect(lambda: self._print_stats(text.toHtml()))
+        btn_layout.addWidget(print_btn)
+        close_btn = QPushButton("Закрыть")
+        close_btn.clicked.connect(dlg.accept)
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
+        
+        dlg.exec()
+    
+    def _print_stats(self, html):
+        """Печать статистики водителя."""
+        from zavgar_app.utils.print_utils import print_raw_html
+        print_raw_html(html, "Статистика водителя")
+
+    def _update_completer(self):
+        """Обновить автоподбор из водителей и статусов."""
+        from PySide6.QtWidgets import QCompleter
+        terms = set()
+        for label in TimesheetDialog.STATUS_MAP.values():
+            terms.add(label)
+        for d in db.list_drivers(self.conn):
+            terms.add(d.fio)
+        completer = QCompleter(sorted(terms), self)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setFilterMode(Qt.MatchContains)
+        self.search_input.setCompleter(completer)
+
     def _on_column_resized(self, col, old_width, new_width):
         """Сохранить ширину столбца при изменении."""
         from zavgar_app.utils.column_settings import save_column_widths
         save_column_widths(self.table, "timesheets")
+
     def refresh(self):
-        """Обновить таблицу."""
+        """Обновить таблицу и сводку."""
         timesheets = db.list_timesheets(self.conn)
         drivers = {d.id: d.fio for d in db.list_drivers(self.conn)}
         
         self.table.setRowCount(len(timesheets))
         
         for row, ts in enumerate(timesheets):
-            # Store timesheet ID in first column item for retrieval
             date_item = QTableWidgetItem(ts.work_date)
             date_item.setData(Qt.UserRole, ts.id)
             self.table.setItem(row, 0, date_item)
@@ -249,7 +422,36 @@ class TimesheetsPage(QWidget):
             self.table.setItem(row, 4, QTableWidgetItem(ts.end_time or ""))
             self.table.setItem(row, 5, QTableWidgetItem(f"{ts.hours:.1f}"))
 
+        # Сводка по водителям
+        stats = {}
+        for ts in timesheets:
+            did = ts.driver_id
+            if did not in stats:
+                stats[did] = {'hours': 0, 'work': 0, 'day_off': 0, 'sick': 0, 'vacation': 0, 'business_trip': 0}
+            if ts.status == 'work':
+                stats[did]['hours'] += ts.hours or 0
+                stats[did]['work'] += 1
+            elif ts.status == 'day_off':
+                stats[did]['day_off'] += 1
+            elif ts.status == 'sick':
+                stats[did]['sick'] += 1
+            elif ts.status == 'vacation':
+                stats[did]['vacation'] += 1
+            elif ts.status == 'business_trip':
+                stats[did]['business_trip'] += 1
+        
+        self.summary_table.setRowCount(len(stats))
+        for row, (did, s) in enumerate(stats.items()):
+            self.summary_table.setItem(row, 0, QTableWidgetItem(drivers.get(did, "?")))
+            self.summary_table.setItem(row, 1, QTableWidgetItem(f"{s['hours']:.1f}"))
+            self.summary_table.setItem(row, 2, QTableWidgetItem(str(s['work'])))
+            self.summary_table.setItem(row, 3, QTableWidgetItem(str(s['day_off'])))
+            self.summary_table.setItem(row, 4, QTableWidgetItem(str(s['sick'])))
+            self.summary_table.setItem(row, 5, QTableWidgetItem(str(s['vacation'])))
+            self.summary_table.setItem(row, 6, QTableWidgetItem(str(s['business_trip'])))
+
         self._update_toolbar()
+        self._update_completer()
 
     def _get_selected_timesheet(self) -> Timesheet | None:
         """Получить Timesheet по выбранной строке."""

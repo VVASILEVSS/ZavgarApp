@@ -9,11 +9,13 @@ from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCalendarWidget,
     QListWidget, QListWidgetItem, QFrame, QComboBox, QSizePolicy,
-    QPushButton, QDialog, QFormLayout, QDateEdit, QMessageBox,
-    QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
+    QPushButton, QDialog, QFormLayout, QMessageBox,
+    QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
+    QToolButton
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt, QDate, QSize
 from PySide6.QtGui import QTextCharFormat, QColor, QBrush, QFont
+from zavgar_app.ui.widgets.triangle_spinbox import TriangleDateEdit
 
 from zavgar_app import db
 from PySide6.QtWidgets import QStyledItemDelegate, QStyle, QFrame
@@ -119,6 +121,34 @@ class CalendarPage(QWidget):
         self.calendar.setFixedHeight(320)
         self.calendar.selectionChanged.connect(self._on_date_selected)
         self.calendar.currentPageChanged.connect(self._update_view)
+        
+        # Белые/чёрные треугольники на кнопках навигации — после show()
+        from PySide6.QtGui import QIcon
+        from PySide6.QtCore import QTimer
+        from zavgar_app.ui.theme import theme_manager
+        import os
+        icons_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
+        
+        def _set_calendar_icons():
+            is_dark = theme_manager.current == "dark"
+            if is_dark:
+                prev_icon = QIcon(os.path.join(icons_dir, "calendar_prev.png"))
+                next_icon = QIcon(os.path.join(icons_dir, "calendar_next.png"))
+            else:
+                prev_icon = QIcon(os.path.join(icons_dir, "calendar_prev_dark.png"))
+                next_icon = QIcon(os.path.join(icons_dir, "calendar_next_dark.png"))
+            
+            prev_btn = self.calendar.findChild(QToolButton, "qt_calendar_prevmonth")
+            next_btn = self.calendar.findChild(QToolButton, "qt_calendar_nextmonth")
+            if prev_btn:
+                prev_btn.setIcon(prev_icon)
+                prev_btn.setIconSize(QSize(12, 16))
+            if next_btn:
+                next_btn.setIcon(next_icon)
+                next_btn.setIconSize(QSize(12, 16))
+        
+        QTimer.singleShot(0, _set_calendar_icons)
+        
         cal_layout.addWidget(self.calendar)
 
         # Легенда
@@ -421,8 +451,7 @@ class HolidayDialog(QDialog):
         layout = QVBoxLayout(dialog)
 
         form = QFormLayout()
-        date_edit = QDateEdit()
-        date_edit.setCalendarPopup(True)
+        date_edit = TriangleDateEdit()
         date_edit.setDate(QDate.currentDate())
         form.addRow("Дата:", date_edit)
 

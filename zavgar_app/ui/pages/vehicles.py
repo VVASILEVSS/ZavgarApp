@@ -201,7 +201,7 @@ class VehiclesPage(QWidget):
         self.search_box.search_changed.connect(self._filter_table)
         header.addWidget(self.search_box)
 
-        add_btn = QPushButton("➕ Добавить авто")
+        add_btn = QPushButton("+ Добавить авто")
         add_btn.setObjectName("primaryBtn")
         add_btn.clicked.connect(self._add_vehicle)
         header.addWidget(add_btn)

@@ -26,12 +26,27 @@ logger = logging.getLogger(__name__)
 SCHEMA_VERSION = 4
 
 
-def open_db(db_path: str | Path) -> sqlite3.Connection:
-    """Открыть БД и применить миграции."""
-    conn = sqlite3.connect(str(db_path))
+def open_db(db_path: str | Path, use_wal: bool = True, timeout: float = 30.0) -> sqlite3.Connection:
+    """Открыть БД и применить миграции.
+    
+    Args:
+        db_path: Путь к файлу БД (локальный или сетевой UNC).
+        use_wal: True для локальных дисков, False для сетевых (WAL не работает по сети).
+        timeout: Таймаут блокировки в секундах (увеличить для сетевых дисков).
+    """
+    db_path = str(db_path)
+    logger.info(f"Opening database: {db_path} (WAL={use_wal}, timeout={timeout})")
+    
+    conn = sqlite3.connect(db_path, timeout=timeout)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+    
+    if use_wal:
+        conn.execute("PRAGMA journal_mode=WAL")
+    else:
+        conn.execute("PRAGMA journal_mode=DELETE")
+    
     conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA busy_timeout=" + str(int(timeout * 1000)))
     _run_migrations(conn)
     return conn
 

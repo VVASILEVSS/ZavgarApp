@@ -34,9 +34,15 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info(f'Starting {__app_name__} v{__version__}')
 
+    # Конфигурация
+    from zavgar_app.config import load_config
+    config = load_config()
+    
     # БД
-    db_path = Path('zavgar_data.db')
-    conn = db.open_db(db_path)
+    db_path = Path(config['db_path'])
+    use_wal = config.get('use_wal', True)
+    timeout = config.get('timeout', 30.0)
+    conn = db.open_db(db_path, use_wal=use_wal, timeout=timeout)
     logger.info(f'Database opened: {db_path}')
     
     # Автоочистка корзины (старше 6 месяцев)

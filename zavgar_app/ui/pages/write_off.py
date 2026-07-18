@@ -17,9 +17,10 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
     QFormLayout, QComboBox, QDoubleSpinBox, QTextEdit,
-    QMessageBox, QDateEdit, QFileDialog, QAbstractItemView,
-    QTreeWidget, QTreeWidgetItem, QMenu,
+    QMessageBox, QFileDialog, QAbstractItemView,
+    QTreeWidget, QTreeWidgetItem, QMenu, QLineEdit,
 )
+from zavgar_app.ui.widgets.triangle_spinbox import TriangleDateEdit
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QColor, QAction
 
@@ -104,8 +105,7 @@ class WriteOffDialog(QDialog):
         num_label.setStyleSheet("font-weight: 700; color: #6366f1; font-size: 14px;")
         form.addRow("Номер акта:", num_label)
 
-        self.date_edit = QDateEdit()
-        self.date_edit.setCalendarPopup(True)
+        self.date_edit = TriangleDateEdit()
         self.date_edit.setDate(QDate.currentDate())
         form.addRow("Дата:", self.date_edit)
 
@@ -134,7 +134,7 @@ class WriteOffDialog(QDialog):
         self.items_table = QTableWidget()
         self.items_table.setColumnCount(5)
         self.items_table.setHorizontalHeaderLabels([
-            "Запчасть", "Артикул", "Количество", "Цена", "Сумма"
+            "Запчасть", "Артикул", "Кол-во", "Цена", "Сумма"
         ])
         self.items_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.items_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
@@ -145,12 +145,14 @@ class WriteOffDialog(QDialog):
         self.items_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.items_table.verticalHeader().setVisible(False)
         self.items_table.setAlternatingRowColors(True)
-        # Стили из темы, не inline
+        # ПКМ контекстное меню
+        self.items_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.items_table.customContextMenuRequested.connect(self._show_items_context_menu)
         layout.addWidget(self.items_table)
 
         items_btn_layout = QHBoxLayout()
         
-        add_item_btn = QPushButton("➕ Добавить позицию")
+        add_item_btn = QPushButton("+ Добавить позицию")
         add_item_btn.setObjectName("primaryBtn")
         add_item_btn.clicked.connect(self._add_item)
         items_btn_layout.addWidget(add_item_btn)
@@ -214,6 +216,23 @@ class WriteOffDialog(QDialog):
             del self.items[row]
             self._refresh_items_table()
 
+    def _show_items_context_menu(self, position):
+        """Контекстное меню для таблицы позиций."""
+        row = self.items_table.rowAt(position.y())
+        if row < 0:
+            return
+        
+        menu = QMenu(self)
+        delete_action = menu.addAction("🗑️ Удалить позицию")
+        delete_action.triggered.connect(lambda: self._remove_item_row(row))
+        menu.exec(self.items_table.viewport().mapToGlobal(position))
+    
+    def _remove_item_row(self, row):
+        """Удалить строку из таблицы позиций."""
+        if 0 <= row < len(self.items):
+            del self.items[row]
+            self._refresh_items_table()
+    
     def _refresh_items_table(self):
         self.items_table.setRowCount(len(self.items))
         total = 0.0
@@ -484,7 +503,7 @@ class WriteOffPage(QWidget):
         header.addWidget(title)
         header.addStretch()
 
-        add_btn = QPushButton("➕ Создать акт")
+        add_btn = QPushButton("+ Создать акт")
         add_btn.setObjectName("primaryBtn")
         add_btn.clicked.connect(self._create_write_off)
         header.addWidget(add_btn)
@@ -725,8 +744,7 @@ class WriteOffPage(QWidget):
         form = QFormLayout()
         form.setSpacing(10)
 
-        date_edit = QDateEdit()
-        date_edit.setCalendarPopup(True)
+        date_edit = TriangleDateEdit()
         from PySide6.QtCore import QDate as QD
         date_edit.setDate(QD.fromString(act['act_date'], "yyyy-MM-dd"))
         form.addRow("Дата:", date_edit)
@@ -756,7 +774,7 @@ class WriteOffPage(QWidget):
 
         layout.addLayout(form)
 
-        # Таблица позиций
+        # Таблица позиций (редактируемая)
         items_label = QLabel("Позиции:")
         items_label.setStyleSheet("font-weight: 600;")
         layout.addWidget(items_label)
@@ -771,17 +789,115 @@ class WriteOffPage(QWidget):
         table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
         table.setAlternatingRowColors(True)
+        # ПКМ контекстное меню
+        table.setContextMenuPolicy(Qt.CustomContextMenu)
+        table.customContextMenuRequested.connect(lambda pos: _show_context_menu(table, pos))
 
-        for item in items:
+        items_list = []  # список для редактирования
+        
+        def _add_item_to_table(item_data):
             row = table.rowCount()
             table.insertRow(row)
-            table.setItem(row, 0, QTableWidgetItem(item['part_name'] or '—'))
-            table.setItem(row, 1, QTableWidgetItem(item['article'] or '—'))
-            table.setItem(row, 2, QTableWidgetItem(f"{item['quantity']:.2f} {item['unit']}"))
-            table.setItem(row, 3, QTableWidgetItem(f"₸ {item['price']:,.2f}"))
-            table.setItem(row, 4, QTableWidgetItem(f"₸ {item['amount']:,.2f}"))
+            table.setItem(row, 0, QTableWidgetItem(item_data['part_name'] or '—'))
+            table.setItem(row, 1, QTableWidgetItem(item_data['article'] or '—'))
+            table.setItem(row, 2, QTableWidgetItem(f"{item_data['quantity']:.2f} {item_data['unit']}"))
+            table.setItem(row, 3, QTableWidgetItem(f"₸ {item_data['price']:,.2f}"))
+            table.setItem(row, 4, QTableWidgetItem(f"₸ {item_data['amount']:,.2f}"))
+            items_list.append(item_data)
+        
+        def _show_context_menu(tbl, pos):
+            """ПКМ по строке позиции — удалить."""
+            row = tbl.rowAt(pos.y())
+            if row < 0:
+                return
+            menu = QMenu()
+            del_action = menu.addAction("🗑️ Удалить позицию")
+            action = menu.exec(tbl.viewport().mapToGlobal(pos))
+            if action == del_action:
+                _delete_item_row(row)
+        
+        def _delete_item_row(row):
+            """Удалить позицию из таблицы."""
+            if 0 <= row < len(items_list):
+                item_data = items_list[row]
+                item_id = item_data.get('id')
+                if item_id:
+                    self.conn.execute("DELETE FROM write_off_items WHERE id=?", (item_id,))
+                    self.conn.commit()
+                items_list.pop(row)
+                table.removeRow(row)
+        
+        def _filter_items_table(text):
+            """Фильтр позиций по названию/артикулу."""
+            text = text.strip().lower()
+            for row in range(table.rowCount()):
+                match = not text
+                if not match:
+                    for col in range(min(2, table.columnCount())):
+                        item = table.item(row, col)
+                        if item and text in item.text().lower():
+                            match = True
+                            break
+                table.setRowHidden(row, not match)
+            
+        def _add_new_item():
+            dlg = QDialog(dialog)
+            dlg.setWindowTitle("Добавить позицию")
+            lay = QFormLayout(dlg)
+            name_edit = QLineEdit()
+            article_edit = QLineEdit()
+            qty_spin = QDoubleSpinBox()
+            qty_spin.setRange(0.01, 9999)
+            qty_spin.setValue(1)
+            price_spin = QDoubleSpinBox()
+            price_spin.setRange(0, 999999)
+            unit_edit = QLineEdit("шт")
+            lay.addRow("Название:", name_edit)
+            lay.addRow("Артикул:", article_edit)
+            lay.addRow("Количество:", qty_spin)
+            lay.addRow("Цена:", price_spin)
+            lay.addRow("Единица:", unit_edit)
+            btn = QHBoxLayout()
+            ok = QPushButton("OK")
+            ok.setObjectName("primaryBtn")
+            ok.clicked.connect(dlg.accept)
+            cancel = QPushButton("Отмена")
+            cancel.clicked.connect(dlg.reject)
+            btn.addWidget(ok)
+            btn.addWidget(cancel)
+            lay.addRow(btn)
+            if dlg.exec() == QDialog.Accepted:
+                qty = qty_spin.value()
+                price = price_spin.value()
+                item_data = {
+                    'part_name': name_edit.text(),
+                    'article': article_edit.text(),
+                    'quantity': qty,
+                    'price': price,
+                    'amount': qty * price,
+                    'unit': unit_edit.text() or 'шт'
+                }
+                _add_item_to_table(item_data)
+        
+        for item in items:
+            _add_item_to_table(item)
 
         layout.addWidget(table)
+        
+        # Поиск + кнопка добавления
+        items_btn_layout = QHBoxLayout()
+        items_search = QLineEdit()
+        items_search.setPlaceholderText("🔍 Поиск позиции...")
+        items_search.setClearButtonEnabled(True)
+        items_search.textChanged.connect(_filter_items_table)
+        items_btn_layout.addWidget(items_search)
+        
+        add_item_btn = QPushButton("+ Добавить позицию")
+        add_item_btn.setObjectName("primaryBtn")
+        add_item_btn.clicked.connect(_add_new_item)
+        items_btn_layout.addWidget(add_item_btn)
+        
+        layout.addLayout(items_btn_layout)
 
         # Итого
         total_amount = sum(i['amount'] for i in items)
@@ -805,6 +921,18 @@ class WriteOffPage(QWidget):
                 reason_edit.toPlainText().strip(),
                 act_id,
             ))
+            # Сохранить новые позиции (без id = новые)
+            for item in items_list:
+                if 'id' not in item or item.get('id') is None:
+                    self.conn.execute("""
+                        INSERT INTO write_off_items (write_off_id, part_name, article, unit, quantity, price, amount)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (act_id, item['part_name'], item['article'], item['unit'],
+                          item['quantity'], item['price'], item['amount']))
+            # Пересчитать итог
+            cur = self.conn.execute("SELECT COALESCE(SUM(amount),0) FROM write_off_items WHERE write_off_id=?", (act_id,))
+            total = cur.fetchone()[0]
+            self.conn.execute("UPDATE write_offs SET total_amount=? WHERE id=?", (total, act_id))
             self.conn.commit()
             self._refresh()
             dialog.accept()

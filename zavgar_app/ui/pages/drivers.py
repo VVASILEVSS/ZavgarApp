@@ -12,11 +12,12 @@ from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
-    QFormLayout, QLineEdit, QComboBox, QDateEdit, QTextEdit,
+    QFormLayout, QLineEdit, QComboBox, QTextEdit,
     QMessageBox, QMenu,
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QColor, QAction
+from zavgar_app.ui.widgets.triangle_spinbox import TriangleDateEdit
 
 from ... import db
 from ...models import Driver
@@ -62,7 +63,7 @@ class DriversPage(QWidget):
         header.addStretch()
 
         # Toolbar buttons
-        self.btn_add = QPushButton("➕ Добавить")
+        self.btn_add = QPushButton("+ Добавить")
         self.btn_add.setObjectName("primaryBtn")
         self.btn_add.clicked.connect(self._add_driver)
         header.addWidget(self.btn_add)
@@ -285,17 +286,13 @@ class DriverDialog(QDialog):
         form.addRow("Категория:", self.category_combo)
 
         # Срок действия прав
-        self.license_expiry_edit = QDateEdit()
-        self.license_expiry_edit.setCalendarPopup(True)
+        self.license_expiry_edit = TriangleDateEdit()
         self.license_expiry_edit.setDate(QDate.currentDate().addYears(10))
-        self.license_expiry_edit.setDisplayFormat("yyyy-MM-dd")
         form.addRow("Срок прав:", self.license_expiry_edit)
 
         # Дата найма
-        self.hire_date_edit = QDateEdit()
-        self.hire_date_edit.setCalendarPopup(True)
+        self.hire_date_edit = TriangleDateEdit()
         self.hire_date_edit.setDate(QDate.currentDate())
-        self.hire_date_edit.setDisplayFormat("yyyy-MM-dd")
         form.addRow("Дата найма:", self.hire_date_edit)
         
         # Статус

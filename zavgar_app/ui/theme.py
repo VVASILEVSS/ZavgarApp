@@ -294,7 +294,7 @@ QMenu::separator {
 }
 
 QCalendarWidget QToolButton {
-    color: #e4e4e7;
+    color: #ffffff;
     background-color: transparent;
     border: none;
     padding: 4px 8px;
@@ -302,6 +302,39 @@ QCalendarWidget QToolButton {
 QCalendarWidget QToolButton:hover {
     background-color: rgba(99,102,241,0.3);
     border-radius: 4px;
+}
+QCalendarWidget QToolButton::menu-indicator { image: none; }
+/* Стрелки навигации — иконки ставятся программно */
+QCalendarWidget QToolButton#qt_calendar_prevmonth,
+QCalendarWidget QToolButton#qt_calendar_nextmonth {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+QCalendarWidget QToolButton#qt_calendar_prevmonth::left-arrow,
+QCalendarWidget QToolButton#qt_calendar_nextmonth::right-arrow {
+    image: none;
+    width: 0; height: 0;
+}
+QCalendarWidget QSpinBox {
+    background-color: rgba(24,24,37,240);
+    color: #ffffff;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    padding: 2px 8px;
+    min-width: 60px;
+}
+QCalendarWidget QSpinBox::up-arrow, QCalendarWidget QSpinBox::down-arrow {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+}
+QCalendarWidget QSpinBox::up-arrow {
+    border-bottom: 5px solid #ffffff;
+}
+QCalendarWidget QSpinBox::down-arrow {
+    border-top: 5px solid #ffffff;
 }
 QCalendarWidget QAbstractItemView {
     background-color: rgba(24,24,37,240);
@@ -351,11 +384,22 @@ QTableWidget, QTableView {
     selection-background-color: rgba(99,102,241,0.25);
     selection-color: #ffffff;
 }
-QTableWidget::item, QTableView::item { padding: 10px 12px; border: none; }
+QTableWidget::item, QTableView::item {
+    padding: 10px 12px;
+    border: none;
+}
 QTableWidget::item:selected, QTableView::item:selected {
     background-color: rgba(99,102,241,0.18);
     color: #ffffff;
+}
+QTableWidget::item:focus, QTableView::item:focus {
+    outline: none;
     border: none;
+}
+QTableWidget::item:focus:!active, QTableView::item:focus:!active {
+    outline: none;
+    border: none;
+}
 }
 QHeaderView::section {
     background-color: rgba(17,17,27,220);
@@ -480,12 +524,12 @@ QPushButton#actionDelete {
     min-width: 32px;
     min-height: 32px;
     font-size: 16px;
-    color: #fca5a5;
+    color: #ffffff;
 }
 QPushButton#actionDelete:hover {
     background-color: rgba(239,68,68,0.2);
     border: 1px solid rgba(239,68,68,0.5);
-    color: #fecaca;
+    color: #ffffff;
 }
 QPushButton#actionRestore {
     background-color: transparent;
@@ -701,12 +745,12 @@ QPushButton#actionDelete {
     min-width: 32px;
     min-height: 32px;
     font-size: 16px;
-    color: #dc2626;
+    color: #ffffff;
 }
 QPushButton#actionDelete:hover {
     background-color: #fee2e2;
     border: 1px solid #fca5a5;
-    color: #991b1b;
+    color: #ffffff;
 }
 QPushButton#actionRestore {
     background-color: #ffffff;
@@ -944,10 +988,21 @@ QTableWidget, QTableView {
     selection-background-color: #ede9fe;
     selection-color: #18181b;
 }
-QTableWidget::item, QTableView::item { padding: 10px 12px; border: none; }
+QTableWidget::item, QTableView::item {
+    padding: 10px 12px;
+    border: none;
+}
 QTableWidget::item:selected, QTableView::item:selected {
     background-color: #ede9fe;
     color: #18181b;
+    border: none;
+}
+QTableWidget::item:focus, QTableView::item:focus {
+    outline: none;
+    border: none;
+}
+QTableWidget::item:focus:!active, QTableView::item:focus:!active {
+    outline: none;
     border: none;
 }
 QHeaderView::section {
@@ -1111,6 +1166,22 @@ QCalendarWidget QToolButton {
 QCalendarWidget QToolButton:hover {
     background-color: #ede9fe;
     border-radius: 4px;
+}
+QCalendarWidget QToolButton#qt_calendar_prevmonth,
+QCalendarWidget QToolButton#qt_calendar_nextmonth {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+QCalendarWidget QToolButton#qt_calendar_prevmonth {
+    qproperty-icon: url(D:/PROJECTS/ZavgarApp/zavgar_app/ui/icons/calendar_prev_dark.png);
+    qproperty-iconSize: 12px 16px;
+}
+QCalendarWidget QToolButton#qt_calendar_nextmonth {
+    qproperty-icon: url(D:/PROJECTS/ZavgarApp/zavgar_app/ui/icons/calendar_next_dark.png);
+    qproperty-iconSize: 12px 16px;
 }
 QCalendarWidget QAbstractItemView {
     background-color: #ffffff;
