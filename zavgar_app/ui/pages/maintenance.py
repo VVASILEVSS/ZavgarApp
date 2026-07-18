@@ -211,6 +211,10 @@ class MaintenancePage(QWidget):
                 status = "✅ В срок"
             self.schedules_table.setItem(row, 6, QTableWidgetItem(status))
 
+        # Восстановить ширины столбцов
+        from zavgar_app.utils.column_settings import restore_column_widths
+        restore_column_widths(self.schedules_table, "maintenance_schedules")
+
         # Записи
         records = db.list_maintenance_records(self.conn)
         self.records_table.setRowCount(len(records))
@@ -228,19 +232,19 @@ class MaintenancePage(QWidget):
             self.records_table.setItem(row, 4, QTableWidgetItem(f"{record.mileage:,}"))
             cost = f"{record.cost:.2f}" if record.cost else "—"
             self.records_table.setItem(row, 5, QTableWidgetItem(cost))
-            self._update_toolbar()
+            self.records_table.setItem(row, 6, QTableWidgetItem(record.notes or ""))
 
-            def _save_col_widths(self, table_type: str):
-            """Сохранить ширину столбца при изменении."""
-            from zavgar_app.utils.column_settings import save_column_widths
-            if table_type == "schedules":
-                save_column_widths(self.schedules_table, "maintenance_schedules")
-            elif table_type == "records":
-                save_column_widths(self.records_table, "maintenance_records")
-
-            def _update_toolbar(self):
+    def _update_toolbar(self):
         """Обновить состояние кнопок тулбара."""
         pass  # Кнопки всегда активны, логика обработки пустого выбора внутри методов
+
+    def _save_col_widths(self, table_type: str):
+        """Сохранить ширину столбца при изменении."""
+        from zavgar_app.utils.column_settings import save_column_widths
+        if table_type == "schedules":
+            save_column_widths(self.schedules_table, "maintenance_schedules")
+        elif table_type == "records":
+            save_column_widths(self.records_table, "maintenance_records")
 
     def _schedule_context_menu(self, pos):
         """Контекстное меню для графиков ТО."""

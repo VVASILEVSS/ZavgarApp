@@ -243,7 +243,6 @@ class VehiclesPage(QWidget):
         self.table.setShowGrid(False)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._show_context_menu)
-        self.table.itemSelectionChanged.connect(self._update_toolbar)
         self.table.horizontalHeader().sectionResized.connect(self._on_column_resized)
         layout.addWidget(self.table)
         
@@ -251,7 +250,6 @@ class VehiclesPage(QWidget):
         from zavgar_app.utils.column_settings import restore_column_widths
         restore_column_widths(self.table, "vehicles")
 
-        self._update_toolbar()
         self.refresh()
     
     def _on_column_resized(self, col, old_width, new_width):
