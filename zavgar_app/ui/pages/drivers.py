@@ -24,6 +24,24 @@ from ...models import Driver
 class DriversPage(QWidget):
     """Страница управления водителями."""
 
+    STATUS_LABELS = {
+        'active': 'Активен',
+        'vacation': 'Отпуск',
+        'sick_leave': 'Больничный',
+        'business_trip': 'Командировка',
+        'suspended': 'Отстранён',
+        'fired': 'Уволен',
+    }
+
+    STATUS_COLORS = {
+        'active': '#10b981',
+        'vacation': '#f59e0b',
+        'sick_leave': '#ef4444',
+        'business_trip': '#3b82f6',
+        'suspended': '#6b7280',
+        'fired': '#6b7280',
+    }
+
     def __init__(self, conn, parent=None):
         super().__init__(parent)
         self.conn = conn
