@@ -214,17 +214,26 @@ class DriversPage(QWidget):
         menu.exec(self.table.viewport().mapToGlobal(pos))
 
     def _print_selected(self):
-        """Печать данных выбранного водителя (заглушка)."""
+        """Печать данных выбранного водителя."""
         driver = self._get_selected_driver()
         if not driver:
+            QMessageBox.information(self, "Подсказка", "Выберите водителя для печати")
             return
-        info = (
-            f"ФИО: {driver.fio}\n"
-            f"Телефон: {driver.phone or '—'}\n"
-            f"Водительское удостоверение: {driver.license_number or '—'}\n"
-            f"Статус: {self.STATUS_LABELS.get(driver.status, driver.status)}"
-        )
-        QMessageBox.information(self, "Печать — Водитель", info)
+        
+        from zavgar_app.utils import print_single_record
+        
+        fields = [
+            ("ФИО", driver.fio),
+            ("Телефон", driver.phone or "—"),
+            ("Водительское удостоверение", driver.license_number or "—"),
+            ("Категория", driver.license_category or "—"),
+            ("Срок действия прав", driver.license_expiry or "—"),
+            ("Дата найма", driver.hire_date or "—"),
+            ("Статус", self.STATUS_LABELS.get(driver.status, driver.status)),
+            ("Заметки", driver.notes or "—"),
+        ]
+        
+        print_single_record(f"Водитель: {driver.fio}", fields, self)
 
 
 class DriverDialog(QDialog):
