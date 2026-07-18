@@ -107,11 +107,21 @@ class DriversPage(QWidget):
 
         # Selection-based toolbar updates
         self.table.selectionModel().selectionChanged.connect(self._update_toolbar)
+        self.table.horizontalHeader().sectionResized.connect(self._on_column_resized)
 
         layout.addWidget(self.table)
 
+        # Восстановить ширины столбцов
+        from zavgar_app.utils.column_settings import restore_column_widths
+        restore_column_widths(self.table, "drivers")
+
         # Initial toolbar state (no selection)
         self._update_toolbar()
+
+    def _on_column_resized(self, col, old_width, new_width):
+        """Сохранить ширину столбца при изменении."""
+        from zavgar_app.utils.column_settings import save_column_widths
+        save_column_widths(self.table, "drivers")
 
     def refresh(self):
         """Перезагрузить данные."""

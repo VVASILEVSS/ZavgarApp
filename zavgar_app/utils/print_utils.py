@@ -204,3 +204,25 @@ def print_single_record(title: str, fields: list[tuple[str, str]], parent=None) 
         return True
     
     return False
+
+
+def print_raw_html(html: str, title: str, parent=None) -> bool:
+    """Печать готового HTML без обёртки."""
+    doc = QTextDocument()
+    doc.setHtml(html)
+    
+    printer = QPrinter(QPrinter.HighResolution)
+    page_layout = QPageLayout(
+        QPageSize(QPageSize.A4),
+        QPageLayout.Portrait,
+        QMarginsF(15, 15, 15, 15)
+    )
+    printer.setPageLayout(page_layout)
+    printer.setDocName(title)
+    
+    dialog = QPrintDialog(printer, parent)
+    if dialog.exec() == QPrintDialog.Accepted:
+        doc.print(printer)
+        return True
+    
+    return False

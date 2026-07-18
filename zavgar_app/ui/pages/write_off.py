@@ -812,6 +812,10 @@ class WriteOffPage(QWidget):
         save_btn.clicked.connect(_save_act)
         btn_layout.addWidget(save_btn)
 
+        print_btn = QPushButton("🖨️ Печать")
+        print_btn.clicked.connect(lambda: self._print_act(act_id))
+        btn_layout.addWidget(print_btn)
+
         export_btn = QPushButton("📊 Экспорт")
         export_btn.clicked.connect(lambda: self._export_act(act_id))
         btn_layout.addWidget(export_btn)
@@ -824,6 +828,37 @@ class WriteOffPage(QWidget):
 
         layout.addLayout(btn_layout)
         dialog.exec()
+
+    def _print_act(self, act_id: int):
+        """Печать акта списания через QPrinter."""
+        from zavgar_app.utils.print_utils import print_document
+        acts = self._load_acts()
+        act = next((a for a in acts if a['id'] == act_id), None)
+        if not act:
+            return
+
+        drivers = {d.id: d.fio for d in db.list_drivers(self.conn)}
+        vehicles = {v.id: f"{v.marka} {v.model} ({v.gosnomer})" for v in db.list_vehicles(self.conn)}
+        items = self._load_act_items(act_id)
+
+        rows = []
+        for item in items:
+            rows.append([
+                item['part_name'] or '—',
+                item['article'] or '—',
+                f"{item['quantity']:.2f} {item['unit']}",
+                f"₸ {item['price']:,.2f}",
+                f"₸ {item['amount']:,.2f}",
+            ])
+
+        title = (f"Акт списания {act['act_number']}\n\n"
+                 f"Дата: {act['act_date']}\n"
+                 f"Авто: {vehicles.get(act['vehicle_id'], '—')}\n"
+                 f"Водитель: {drivers.get(act['driver_id'], '—')}\n"
+                 f"Причина: {act['reason'] or '—'}\n\n"
+                 f"Итого: ₸ {act['total_amount']:,.2f}")
+
+        print_document(title, ["Запчасть", "Артикул", "Кол-во", "Цена", "Сумма"], rows, self)
 
     def _export_act(self, act_id: int):
         """Экспортировать один акт в Excel."""

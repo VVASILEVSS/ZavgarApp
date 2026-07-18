@@ -280,11 +280,21 @@ class PartsPage(QWidget):
         self.tx_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tx_table.verticalHeader().setVisible(False)
         self.tx_table.setShowGrid(False)
-        self.tabs.addTab(self.tx_table, 'История')
-
-        layout.addWidget(self.tabs)
+        self.parts_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.parts_table.customContextMenuRequested.connect(self._show_context_menu)
+        self.parts_table.horizontalHeader().sectionResized.connect(self._on_column_resized)
+        layout.addWidget(self.parts_table)
+        
+        # Восстановить ширины столбцов
+        from zavgar_app.utils.column_settings import restore_column_widths
+        restore_column_widths(self.parts_table, "parts")
 
         self.refresh()
+    
+    def _on_column_resized(self, col, old_width, new_width):
+        """Сохранить ширину столбца при изменении."""
+        from zavgar_app.utils.column_settings import save_column_widths
+        save_column_widths(self.parts_table, "parts")
 
     def refresh(self):
         """Перезагрузить данные."""
@@ -362,16 +372,17 @@ class PartsPage(QWidget):
         menu.exec(self.parts_table.viewport().mapToGlobal(pos))
 
     def _print_part(self):
-        """Печать данных запчасти."""
+        """Печать данных запчасти через QPrinter."""
+        from zavgar_app.utils.print_utils import print_document
         pid = self._get_selected_part_id()
         if not pid:
             QMessageBox.information(self, 'Печать', 'Выберите запчасть в таблице')
             return
         row = self.parts_table.currentRow()
         data = [self.parts_table.item(row, c).text() for c in range(7)]
-        QMessageBox.information(self, 'Печать запчасти',
-            f"Название: {data[0]}\nАртикул: {data[1]}\nКатегория: {data[2]}\n"
-            f"Остаток: {data[3]}\nМин.: {data[4]}\nСр. цена: {data[5]}")
+        print_document("Запчасть",
+            ['Название', 'Артикул', 'Категория', 'Остаток', 'Мин.', 'Ср. цена', 'ID'],
+            [data], self)
 
     def _add_part(self):
         dlg = PartDialog(parent=self)

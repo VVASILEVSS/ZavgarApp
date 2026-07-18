@@ -212,10 +212,20 @@ class TimesheetsPage(QWidget):
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._show_context_menu)
         self.table.itemSelectionChanged.connect(self._update_toolbar)
+        self.table.horizontalHeader().sectionResized.connect(self._on_column_resized)
         layout.addWidget(self.table)
+        
+        # Восстановить ширины столбцов
+        from zavgar_app.utils.column_settings import restore_column_widths
+        restore_column_widths(self.table, "timesheets")
 
+        self._update_toolbar()
         self.refresh()
-
+    
+    def _on_column_resized(self, col, old_width, new_width):
+        """Сохранить ширину столбца при изменении."""
+        from zavgar_app.utils.column_settings import save_column_widths
+        save_column_widths(self.table, "timesheets")
     def refresh(self):
         """Обновить таблицу."""
         timesheets = db.list_timesheets(self.conn)
@@ -393,10 +403,5 @@ class TimesheetsPage(QWidget):
         </table>
         """
 
-        doc = QTextDocument()
-        doc.setHtml(html)
-
-        printer = QPrinter(QPrinter.HighResolution)
-        dlg = QPrintDialog(printer, self)
-        if dlg.exec() == QPrintDialog.Accepted:
-            doc.print_(printer)
+        from zavgar_app.utils.print_utils import print_raw_html
+        print_raw_html(html, "Табель учёта", self)

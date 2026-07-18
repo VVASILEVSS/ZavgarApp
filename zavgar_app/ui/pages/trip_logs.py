@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QMenu
 )
 from PySide6.QtCore import Qt, QDate, QTime
+from zavgar_app.utils.column_settings import save_column_widths, restore_column_widths
 from PySide6.QtGui import QColor, QAction
 
 from zavgar_app import db
@@ -253,10 +254,20 @@ class TripLogsPage(QWidget):
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._show_context_menu)
         self.table.itemSelectionChanged.connect(self._update_toolbar)
+        self.table.horizontalHeader().sectionResized.connect(self._on_column_resized)
         layout.addWidget(self.table)
+        
+        # Восстановить ширины столбцов
+        from zavgar_app.utils.column_settings import restore_column_widths
+        restore_column_widths(self.table, "trip_logs")
 
         self._update_toolbar()
         self.refresh()
+    
+    def _on_column_resized(self, col, old_width, new_width):
+        """Сохранить ширину столбца при изменении."""
+        from zavgar_app.utils.column_settings import save_column_widths
+        save_column_widths(self.table, "trip_logs")
 
     def refresh(self):
         """Обновить таблицу."""
@@ -361,7 +372,7 @@ class TripLogsPage(QWidget):
         vehicle = vehicles.get(trip.vehicle_id)
         vehicle_info = f"{vehicle.marka} {vehicle.model}, {vehicle.gosnomer}" if vehicle else '—'
 
-        from zavgar_app.utils import print_document
+        from zavgar_app.utils.print_utils import print_raw_html
         html = f"""
         <div style="font-family: 'Times New Roman', serif; font-size: 12pt;">
             <h2 style="text-align: center; margin-bottom: 5px;">ПУТЕВОЙ ЛИСТ</h2>
@@ -472,7 +483,7 @@ class TripLogsPage(QWidget):
             </p>
         </div>
         """
-        print_document(html, "Путевой лист")
+        print_raw_html(html, "Путевой лист", self)
 
     def _add_trip(self):
         """Добавить путевой лист."""

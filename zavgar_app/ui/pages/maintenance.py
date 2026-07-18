@@ -107,6 +107,8 @@ class MaintenancePage(QWidget):
         self.schedules_table.selectionModel().selectionChanged.connect(
             lambda *_: self._update_toolbar())
         self.schedules_table.doubleClicked.connect(self._edit_schedule_selected)
+        self.schedules_table.horizontalHeader().sectionResized.connect(
+            lambda c, o, n: self._save_col_widths("schedules"))
         schedules_layout.addWidget(self.schedules_table)
 
         self.tabs.addTab(schedules_tab, "Графики ТО")
@@ -161,6 +163,8 @@ class MaintenancePage(QWidget):
         self.records_table.customContextMenuRequested.connect(self._record_context_menu)
         self.records_table.selectionModel().selectionChanged.connect(
             lambda *_: self._update_toolbar())
+        self.records_table.horizontalHeader().sectionResized.connect(
+            lambda c, o, n: self._save_col_widths("records"))
         records_layout.addWidget(self.records_table)
 
         self.tabs.addTab(records_tab, "История ТО")
@@ -224,9 +228,17 @@ class MaintenancePage(QWidget):
             self.records_table.setItem(row, 4, QTableWidgetItem(f"{record.mileage:,}"))
             cost = f"{record.cost:.2f}" if record.cost else "—"
             self.records_table.setItem(row, 5, QTableWidgetItem(cost))
-            self.records_table.setItem(row, 6, QTableWidgetItem(record.notes or ""))
+            self._update_toolbar()
 
-    def _update_toolbar(self):
+            def _save_col_widths(self, table_type: str):
+            """Сохранить ширину столбца при изменении."""
+            from zavgar_app.utils.column_settings import save_column_widths
+            if table_type == "schedules":
+                save_column_widths(self.schedules_table, "maintenance_schedules")
+            elif table_type == "records":
+                save_column_widths(self.records_table, "maintenance_records")
+
+            def _update_toolbar(self):
         """Обновить состояние кнопок тулбара."""
         pass  # Кнопки всегда активны, логика обработки пустого выбора внутри методов
 
@@ -263,28 +275,28 @@ class MaintenancePage(QWidget):
             self._print_record()
 
     def _print_schedule(self):
-        """Печать графика ТО."""
+        """Печать графика ТО через QPrinter."""
+        from zavgar_app.utils.print_utils import print_document
         row = self.schedules_table.currentRow()
         if row < 0:
             QMessageBox.information(self, "Печать", "Выберите график ТО")
             return
         data = [self.schedules_table.item(row, c).text() for c in range(7)]
-        QMessageBox.information(self, "Печать графика ТО",
-            f"ID: {data[0]}\nАвто: {data[1]}\nТип: {data[2]}\n"
-            f"Интервал: {data[3]} км\nПоследнее: {data[4]}\n"
-            f"Следующее: {data[5]}\nСтатус: {data[6]}")
+        print_document("График ТО",
+            ["ID", "Автомобиль", "Тип ТО", "Интервал", "Последнее ТО", "Следующее", "Статус"],
+            [data], self)
 
     def _print_record(self):
-        """Печать записи ТО."""
+        """Печать записи ТО через QPrinter."""
+        from zavgar_app.utils.print_utils import print_document
         row = self.records_table.currentRow()
         if row < 0:
             QMessageBox.information(self, "Печать", "Выберите запись ТО")
             return
         data = [self.records_table.item(row, c).text() for c in range(7)]
-        QMessageBox.information(self, "Печать записи ТО",
-            f"ID: {data[0]}\nДата: {data[1]}\nАвто: {data[2]}\n"
-            f"Тип: {data[3]}\nПробег: {data[4]}\nСтоимость: {data[5]}\n"
-            f"Примечания: {data[6]}")
+        print_document("Запись ТО",
+            ["ID", "Дата", "Автомобиль", "Тип ТО", "Пробег", "Стоимость", "Примечания"],
+            [data], self)
 
     def _add_schedule(self):
         """Открыть диалог добавления графика ТО."""

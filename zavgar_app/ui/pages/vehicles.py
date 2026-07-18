@@ -243,11 +243,21 @@ class VehiclesPage(QWidget):
         self.table.setShowGrid(False)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._show_context_menu)
-        self.table.doubleClicked.connect(self._edit_vehicle)
-
+        self.table.itemSelectionChanged.connect(self._update_toolbar)
+        self.table.horizontalHeader().sectionResized.connect(self._on_column_resized)
         layout.addWidget(self.table)
+        
+        # Восстановить ширины столбцов
+        from zavgar_app.utils.column_settings import restore_column_widths
+        restore_column_widths(self.table, "vehicles")
 
+        self._update_toolbar()
         self.refresh()
+    
+    def _on_column_resized(self, col, old_width, new_width):
+        """Сохранить ширину столбца при изменении."""
+        from zavgar_app.utils.column_settings import save_column_widths
+        save_column_widths(self.table, "vehicles")
 
     def refresh(self):
         """Перезагрузить данные."""
@@ -341,17 +351,17 @@ class VehiclesPage(QWidget):
         menu.exec(self.table.viewport().mapToGlobal(pos))
 
     def _print_vehicle(self):
-        """Печать данных авто."""
+        """Печать данных авто через QPrinter."""
+        from zavgar_app.utils.print_utils import print_document
         vid = self._get_selected_vehicle_id()
         if not vid:
             QMessageBox.information(self, 'Печать', 'Выберите авто в таблице')
             return
         row = self.table.currentRow()
         data = [self.table.item(row, c).text() for c in range(8)]
-        QMessageBox.information(self, 'Печать авто',
-            f"ID: {data[0]}\nМарка/Модель: {data[1]}\nГод: {data[2]}\n"
-            f"Госномер: {data[3]}\nТип: {data[4]}\nПробег: {data[5]}\n"
-            f"Водитель: {data[6]}\nСтатус: {data[7]}")
+        print_document("Автомобиль",
+            ['ID', 'Марка/Модель', 'Год', 'Госномер', 'Тип', 'Пробег', 'Водитель', 'Статус'],
+            [data], self)
 
     def _delete_vehicle(self):
         """Удалить авто."""
