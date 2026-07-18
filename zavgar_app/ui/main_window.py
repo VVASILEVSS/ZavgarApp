@@ -253,3 +253,8 @@ class MainWindow(QMainWindow):
         new_theme = theme_manager.toggle(app)
         text = '☀️ Светлая тема' if new_theme == 'dark' else '🌙 Тёмная тема'
         self.sidebar.theme_btn.setText(text)
+        # Обновить иконки календаря
+        for p in self.pages:
+            if hasattr(p, 'update_calendar_icons'):
+                p.update_calendar_icons()
+                break

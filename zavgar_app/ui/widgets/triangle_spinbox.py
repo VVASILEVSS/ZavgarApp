@@ -148,6 +148,32 @@ class TriangleDateEdit(QDateEdit):
         cal.setMinimumHeight(320)
         lay.addWidget(cal)
         
+        # Установить иконки стрелок под текущую тему
+        from PySide6.QtGui import QIcon
+        from PySide6.QtCore import QSize, QTimer
+        from zavgar_app.ui.theme import theme_manager
+        import os
+        icons_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
+        
+        def _set_icons():
+            is_dark = theme_manager.current == "dark"
+            if is_dark:
+                prev_icon = QIcon(os.path.join(icons_dir, "calendar_prev.png"))
+                next_icon = QIcon(os.path.join(icons_dir, "calendar_next.png"))
+            else:
+                prev_icon = QIcon(os.path.join(icons_dir, "calendar_prev_dark.png"))
+                next_icon = QIcon(os.path.join(icons_dir, "calendar_next_dark.png"))
+            prev_btn = cal.findChild(QToolButton, "qt_calendar_prevmonth")
+            next_btn = cal.findChild(QToolButton, "qt_calendar_nextmonth")
+            if prev_btn:
+                prev_btn.setIcon(prev_icon)
+                prev_btn.setIconSize(QSize(12, 16))
+            if next_btn:
+                next_btn.setIcon(next_icon)
+                next_btn.setIconSize(QSize(12, 16))
+        
+        QTimer.singleShot(0, _set_icons)
+        
         # Двойной клик = выбрать и закрыть
         cal.activated.connect(lambda: self._accept_date(dlg, cal))
         
