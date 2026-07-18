@@ -364,7 +364,7 @@ class HolidayDialog(QDialog):
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.setAlternatingRowColors(True)
+        self.table.setAlternatingRowColors(False)
         self.table.setShowGrid(False)
         self.table.setItemDelegate(_NoFocusDelegate(self.table))
         self.table.doubleClicked.connect(self._edit_holiday_popup)

@@ -384,12 +384,11 @@ QComboBox QAbstractItemView::item {
 /* Tables */
 QTableWidget, QTableView {
     background-color: #1a1a2e;
-    alternate-background-color: #1a1a2e;
     color: #e4e4e7;
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 14px;
     gridline-color: rgba(255,255,255,0.04);
-    selection-background-color: rgba(99,102,241,0.35);
+    selection-background-color: #6366f1;
     selection-color: #ffffff;
 }
 QTableWidget::item, QTableView::item {
@@ -397,16 +396,20 @@ QTableWidget::item, QTableView::item {
     border: none;
 }
 QTableWidget::item:selected, QTableView::item:selected {
-    background-color: rgba(99,102,241,0.35);
+    background-color: #6366f1;
     color: #ffffff;
 }
 QTableWidget::item:focus, QTableView::item:focus {
     outline: none;
     border: none;
+    background-color: #6366f1;
+    color: #ffffff;
 }
 QTableWidget::item:focus:!active, QTableView::item:focus:!active {
     outline: none;
     border: none;
+    background-color: #6366f1;
+    color: #ffffff;
 }
 QHeaderView::section {
     background-color: #15152a;
@@ -557,9 +560,8 @@ QTreeWidget {
     color: #e4e4e7;
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 10px;
-    selection-background-color: rgba(99,102,241,0.25);
+    selection-background-color: #6366f1;
     selection-color: #ffffff;
-    alternate-background-color: rgba(24,24,37,100);
 }
 QTreeWidget::item {
     padding: 8px 12px;
@@ -589,7 +591,6 @@ QTreeWidget QHeaderView::section {
 /* List items */
 QListWidget {
     background-color: rgba(17,17,27,180);
-    alternate-background-color: rgba(24,24,37,100);
     color: #e4e4e7;
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 8px;
@@ -599,8 +600,8 @@ QListWidget::item {
     border-radius: 4px;
 }
 QListWidget::item:selected {
-    background-color: rgba(99,102,241,0.25);
-}
+    background-color: #6366f1;
+    color: #ffffff;
 
 /* Dialogs and message boxes */
 QDialog, QMessageBox {
@@ -981,30 +982,33 @@ QComboBox QAbstractItemView::item {
 /* Tables */
 QTableWidget, QTableView {
     background-color: #ffffff;
-    alternate-background-color: #ffffff;
     color: #18181b;
     border: 1px solid #e5e7eb;
     border-radius: 14px;
     gridline-color: #f3f4f6;
-    selection-background-color: #ede9fe;
-    selection-color: #18181b;
+    selection-background-color: #6366f1;
+    selection-color: #ffffff;
 }
 QTableWidget::item, QTableView::item {
     padding: 10px 12px;
     border: none;
 }
 QTableWidget::item:selected, QTableView::item:selected {
-    background-color: #ede9fe;
-    color: #18181b;
+    background-color: #6366f1;
+    color: #ffffff;
     border: none;
 }
 QTableWidget::item:focus, QTableView::item:focus {
     outline: none;
     border: none;
+    background-color: #6366f1;
+    color: #ffffff;
 }
 QTableWidget::item:focus:!active, QTableView::item:focus:!active {
     outline: none;
     border: none;
+    background-color: #6366f1;
+    color: #ffffff;
 }
 QHeaderView::section {
     background-color: #f9fafb;
@@ -1201,7 +1205,6 @@ QCalendarWidget QAbstractItemView::item:disabled {
 /* List widget — light theme */
 QListWidget {
     background-color: #ffffff;
-    alternate-background-color: #f9fafb;
     color: #18181b;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -1212,8 +1215,8 @@ QListWidget::item {
     color: #18181b;
 }
 QListWidget::item:selected {
-    background-color: #ede9fe;
-    color: #18181b;
+    background-color: #6366f1;
+    color: #ffffff;
 }
 
 /* Focus — remove dotted outline (light theme) */

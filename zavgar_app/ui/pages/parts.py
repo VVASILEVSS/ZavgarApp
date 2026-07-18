@@ -252,7 +252,7 @@ class PartsPage(QWidget):
         self.parts_table.setColumnWidth(6, 40)
         self.parts_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.parts_table.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.parts_table.setAlternatingRowColors(True)
+        self.parts_table.setAlternatingRowColors(False)
         self.parts_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.parts_table.verticalHeader().setVisible(False)
         self.parts_table.setShowGrid(False)
@@ -268,7 +268,7 @@ class PartsPage(QWidget):
             'Дата', 'Запчасть', 'Тип', 'Кол-во', 'Цена', 'Заметки'
         ])
         self.tx_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.tx_table.setAlternatingRowColors(True)
+        self.tx_table.setAlternatingRowColors(False)
         self.tx_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tx_table.verticalHeader().setVisible(False)
         self.tx_table.setShowGrid(False)

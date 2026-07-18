@@ -77,7 +77,7 @@ class ReportsPage(QWidget):
         ])
         self.cost_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.cost_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.cost_table.setAlternatingRowColors(True)
+        self.cost_table.setAlternatingRowColors(False)
         layout.addWidget(self.cost_table)
 
         layout.addStretch()

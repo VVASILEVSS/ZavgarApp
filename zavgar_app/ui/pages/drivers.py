@@ -96,7 +96,7 @@ class DriversPage(QWidget):
         self.table.horizontalHeader().setSectionsClickable(False)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.setAlternatingRowColors(True)
+        self.table.setAlternatingRowColors(False)
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setDefaultSectionSize(44)
         self.table.setShowGrid(False)
