@@ -3,6 +3,7 @@ ui/pages/trash.py — Корзина (soft-delete)
 =========================================
 
 Восстановление или полное удаление записей из корзины.
+Использует прямые SQL-запросы (модели не содержат deleted_at).
 """
 
 from __future__ import annotations
@@ -18,6 +19,14 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 
 from zavgar_app import db
+
+
+# Таблицы и их описания для корзины
+TRASH_TABLES = {
+    'vehicles':  {'label': 'Авто',      'desc_col': "marka || ' ' || model || ' (' || gosnomer || ')'"},
+    'drivers':   {'label': 'Водитель',  'desc_col': 'fio'},
+    'parts':     {'label': 'Запчасть',  'desc_col': 'name'},
+}
 
 
 class TrashPage(QWidget):
@@ -63,13 +72,15 @@ class TrashPage(QWidget):
 
         # Таблица
         self.table = QTableWidget()
-        self.table.setColumnCount(5)
+        self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels([
-            'ID', 'Тип', 'Описание', 'Удалено', 'Таблица'
+            'ID', 'Тип', 'Описание', 'Удалено'
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
         self.table.setColumnWidth(0, 60)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
+        self.table.setColumnWidth(1, 100)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
         self.table.setColumnWidth(3, 140)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -92,45 +103,41 @@ class TrashPage(QWidget):
         self.refresh()
 
     def refresh(self):
-        """Перезагрузить список удалённых записей."""
-        deleted = []
-        
-        # Авто
-        vehicles = db.list_vehicles(self.conn, include_deleted=True)
-        for v in vehicles:
-            if v.deleted_at:
-                deleted.append((v.id, 'Авто', f"{v.marka} {v.model} ({v.gosnomer})", v.deleted_at, 'vehicles'))
-        
-        # Водители
-        drivers = db.list_drivers(self.conn, include_deleted=True)
-        for d in drivers:
-            if d.deleted_at:
-                deleted.append((d.id, 'Водитель', d.fio, d.deleted_at, 'drivers'))
-        
-        # Запчасти
-        parts = db.list_parts(self.conn, include_deleted=True)
-        for p in parts:
-            if p.deleted_at:
-                deleted.append((p.id, 'Запчасть', p.name, p.deleted_at, 'parts'))
+        """Перезагрузить список удалённых записей через SQL."""
+        rows = []
+        for table, info in TRASH_TABLES.items():
+            try:
+                cur = self.conn.execute(
+                    f"SELECT id, {info['desc_col']}, deleted_at "
+                    f"FROM {table} WHERE deleted_at IS NOT NULL AND deleted_at != '' "
+                    f"ORDER BY deleted_at DESC"
+                )
+                for r in cur.fetchall():
+                    rows.append((r[0], info['label'], r[1] or '', r[2], table))
+            except Exception:
+                continue
 
-        self.table.setRowCount(len(deleted))
+        self.table.setRowCount(len(rows))
+        for i, (item_id, item_type, desc, deleted_at, tbl) in enumerate(rows):
+            self.table.setItem(i, 0, QTableWidgetItem(str(item_id)))
+            self.table.setItem(i, 1, QTableWidgetItem(item_type))
+            self.table.setItem(i, 2, QTableWidgetItem(desc))
+            self.table.setItem(i, 3, QTableWidgetItem(deleted_at[:16] if deleted_at else ''))
+            # Сохраняем имя таблицы в скрытой колонке
+            hidden = QTableWidgetItem(tbl)
+            hidden.setFlags(hidden.flags() & ~Qt.ItemIsSelectable)
+            # Используем UserRole в колонке 0
+            self.table.item(i, 0).setData(Qt.UserRole, tbl)
 
-        for row, (item_id, item_type, description, deleted_at, table_name) in enumerate(deleted):
-            self.table.setItem(row, 0, QTableWidgetItem(str(item_id)))
-            self.table.setItem(row, 1, QTableWidgetItem(item_type))
-            self.table.setItem(row, 2, QTableWidgetItem(description))
-            self.table.setItem(row, 3, QTableWidgetItem(deleted_at[:16] if deleted_at else ''))
-            self.table.setItem(row, 4, QTableWidgetItem(table_name))
-
-    def _get_selected_item(self) -> tuple[int, str] | None:
-        """Получить ID и таблицу выбранной записи."""
+    def _get_selected(self) -> tuple[int, str] | None:
+        """Получить (ID, table_name) выбранной записи."""
         rows = self.table.selectionModel().selectedRows()
         if not rows:
             return None
         row = rows[0].row()
-        item_id = self.table.item(row, 0).text()
-        table_name = self.table.item(row, 4).text()
-        return int(item_id), table_name
+        item_id = int(self.table.item(row, 0).text())
+        table_name = self.table.item(row, 0).data(Qt.UserRole)
+        return item_id, table_name
 
     def _show_context_menu(self, pos):
         """Контекстное меню по правому клику."""
@@ -145,7 +152,7 @@ class TrashPage(QWidget):
 
     def _restore_selected(self):
         """Восстановить выбранную запись."""
-        selected = self._get_selected_item()
+        selected = self._get_selected()
         if not selected:
             QMessageBox.information(self, "Подсказка", "Выберите запись для восстановления")
             return
@@ -159,11 +166,10 @@ class TrashPage(QWidget):
         if reply == QMessageBox.Yes:
             db.restore_from_trash(self.conn, table_name, item_id)
             self.refresh()
-            QMessageBox.information(self, "Успех", "Запись восстановлена")
 
     def _delete_permanently(self):
-        """Удалить запись полностью (без возможности восстановления)."""
-        selected = self._get_selected_item()
+        """Удалить запись полностью."""
+        selected = self._get_selected()
         if not selected:
             QMessageBox.information(self, "Подсказка", "Выберите запись для удаления")
             return
@@ -177,7 +183,6 @@ class TrashPage(QWidget):
         if reply == QMessageBox.Yes:
             db.hard_delete(self.conn, table_name, item_id)
             self.refresh()
-            QMessageBox.information(self, "Успех", "Запись удалена полностью")
 
     def _clear_all(self):
         """Очистить всю корзину."""
@@ -187,21 +192,12 @@ class TrashPage(QWidget):
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.Yes:
-            # Очистить все таблицы
-            for table in ['vehicles', 'drivers', 'parts']:
-                deleted = []
-                if table == 'vehicles':
-                    items = db.list_vehicles(self.conn, include_deleted=True)
-                    deleted = [v.id for v in items if v.deleted_at]
-                elif table == 'drivers':
-                    items = db.list_drivers(self.conn, include_deleted=True)
-                    deleted = [d.id for d in items if d.deleted_at]
-                elif table == 'parts':
-                    items = db.list_parts(self.conn, include_deleted=True)
-                    deleted = [p.id for p in items if p.deleted_at]
-                
-                for item_id in deleted:
-                    db.hard_delete(self.conn, table, item_id)
-            
+            for table in TRASH_TABLES:
+                try:
+                    self.conn.execute(
+                        f"DELETE FROM {table} WHERE deleted_at IS NOT NULL AND deleted_at != ''"
+                    )
+                except Exception:
+                    continue
+            self.conn.commit()
             self.refresh()
-            QMessageBox.information(self, "Успех", "Корзина очищена")
