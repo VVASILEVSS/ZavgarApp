@@ -144,7 +144,7 @@ class WriteOffDialog(QDialog):
         self.items_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.items_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.items_table.verticalHeader().setVisible(False)
-        self.items_table.setAlternatingRowColors(True)
+        self.items_table.setAlternatingRowColors(False)
         # ПКМ контекстное меню
         self.items_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.items_table.customContextMenuRequested.connect(self._show_items_context_menu)
@@ -562,7 +562,7 @@ class WriteOffPage(QWidget):
         self.tree.setColumnWidth(3, 150)
         self.tree.header().setSectionResizeMode(4, QHeaderView.Fixed)
         self.tree.setColumnWidth(4, 120)
-        self.tree.setAlternatingRowColors(True)
+        self.tree.setAlternatingRowColors(False)
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
         self.tree.doubleClicked.connect(self._on_double_click)
@@ -788,7 +788,7 @@ class WriteOffPage(QWidget):
         table.verticalHeader().setVisible(False)
         table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        table.setAlternatingRowColors(True)
+        table.setAlternatingRowColors(False)
         # ПКМ контекстное меню
         table.setContextMenuPolicy(Qt.CustomContextMenu)
         table.customContextMenuRequested.connect(lambda pos: _show_context_menu(table, pos))
