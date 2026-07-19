@@ -270,7 +270,7 @@ QCalendarWidget QWidget#qt_calendar_navigationbar {
 }
 QCalendarWidget { outline: none; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; }
 QCalendarWidget QAbstractItemView:focus { outline: none; border: none; }
-QCalendarWidget QAbstractItemView::item:selected { background-color: rgba(99,102,241,0.40); }
+QCalendarWidget QAbstractItemView::item:selected { background-color: #6366f1; color: #ffffff; }
 
 /* Context menus */
 QMenu {
@@ -344,9 +344,8 @@ QCalendarWidget QSpinBox::down-arrow {
 QCalendarWidget QAbstractItemView {
     background-color: rgba(24,24,37,240);
     color: #e4e4e7;
-    selection-background-color: rgba(99,102,241,0.5);
+    selection-background-color: #6366f1;
     selection-color: #ffffff;
-    alternate-background-color: rgba(39,39,56,200);
 }
 QCalendarWidget QAbstractItemView::item:disabled {
     color: #6b7280;
@@ -1155,7 +1154,7 @@ QMenu::separator {
 /* Calendar popup — light theme */
 QCalendarWidget { outline: none; border: 1px solid #e5e7eb; border-radius: 10px; }
 QCalendarWidget QAbstractItemView:focus { outline: none; border: none; }
-QCalendarWidget QAbstractItemView::item:selected { background-color: #ede9fe; }
+QCalendarWidget QAbstractItemView::item:selected { background-color: #6366f1; color: #ffffff; }
 QCalendarWidget QWidget#qt_calendar_navigationbar {
     background-color: #f9fafb;
     color: #18181b;
@@ -1191,9 +1190,8 @@ QCalendarWidget QToolButton#qt_calendar_nextmonth::right-arrow {
 QCalendarWidget QAbstractItemView {
     background-color: #ffffff;
     color: #18181b;
-    selection-background-color: #ede9fe;
-    selection-color: #18181b;
-    alternate-background-color: #f9fafb;
+    selection-background-color: #6366f1;
+    selection-color: #ffffff;
 }
 QCalendarWidget QAbstractItemView::item {
     color: #18181b;
