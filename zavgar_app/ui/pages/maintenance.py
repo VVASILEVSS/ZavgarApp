@@ -7,18 +7,17 @@ ui/pages/maintenance.py — Раздел "ТО и обслуживание"
 
 from __future__ import annotations
 
-from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
-    QFormLayout, QLineEdit, QComboBox, QSpinBox,
+    QFormLayout, QComboBox, QSpinBox,
     QDoubleSpinBox, QTextEdit, QMessageBox, QTabWidget,
 )
 from PySide6.QtCore import Qt, QDate
 from zavgar_app.ui.widgets.triangle_spinbox import TriangleDateEdit
 
 from ... import db
-from ...models import MaintenanceSchedule, MaintenanceRecord, Vehicle
+from ...models import MaintenanceSchedule, MaintenanceRecord
 
 
 MAINTENANCE_TYPES = {

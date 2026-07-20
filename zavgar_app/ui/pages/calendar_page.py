@@ -5,20 +5,17 @@ ui/pages/calendar_page.py — Интерактивный календарь та
 Компактный календарь + статистика-шапка + детали по ширине + праздники.
 """
 from __future__ import annotations
-from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCalendarWidget,
-    QListWidget, QListWidgetItem, QFrame, QComboBox, QSizePolicy,
-    QPushButton, QDialog, QFormLayout, QMessageBox,
-    QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
-    QToolButton
+    QListWidget, QListWidgetItem, QFrame, QComboBox, QPushButton, QDialog, QFormLayout, QMessageBox,
+    QTableWidget, QTableWidgetItem, QHeaderView, QToolButton
 )
 from PySide6.QtCore import Qt, QDate, QSize
 from PySide6.QtGui import QTextCharFormat, QColor, QBrush, QFont
 from zavgar_app.ui.widgets.triangle_spinbox import TriangleDateEdit
 
 from zavgar_app import db
-from PySide6.QtWidgets import QStyledItemDelegate, QStyle, QFrame
+from PySide6.QtWidgets import QStyledItemDelegate, QStyle
 
 
 class _NoFocusDelegate(QStyledItemDelegate):
@@ -123,9 +120,7 @@ class CalendarPage(QWidget):
         self.calendar.currentPageChanged.connect(self._update_view)
         
         # Белые/чёрные треугольники на кнопках навигации
-        from PySide6.QtGui import QIcon
         from PySide6.QtCore import QTimer
-        from zavgar_app.ui.theme import theme_manager
         import os
         self._icons_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
         

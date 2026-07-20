@@ -16,8 +16,8 @@ from typing import Optional
 from PySide6.QtWidgets import (
     QWidget, QPushButton, QGraphicsDropShadowEffect, QFrame,
 )
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QColor, QPainter, QLinearGradient, QBrush
+from PySide6.QtCore import QPropertyAnimation, QEasingCurve
+from PySide6.QtGui import QColor
 
 
 # ════════════════════════════════════════════════════════════════════

@@ -4,10 +4,9 @@ utils/print_utils.py — Утилиты для печати через QPrinter
 
 from __future__ import annotations
 
-from PySide6.QtCore import QMarginsF, Qt
-from PySide6.QtGui import QPageLayout, QPageSize, QTextDocument, QFont
+from PySide6.QtCore import QMarginsF
+from PySide6.QtGui import QPageLayout, QPageSize, QTextDocument
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
-from PySide6.QtWidgets import QMessageBox
 
 
 def print_table_html(title: str, headers: list[str], rows: list[list[str]]) -> str:

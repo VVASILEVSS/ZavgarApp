@@ -3,6 +3,7 @@ db/drivers.py — CRUD операции для водителей
 """
 from __future__ import annotations
 import sqlite3
+from datetime import datetime
 from zavgar_app.models.driver import Driver
 
 

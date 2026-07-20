@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
     QMessageBox, QAbstractItemView, QMenu,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
 
 from zavgar_app import db
 

@@ -7,13 +7,12 @@ ui/pages/reports.py — Раздел "Отчёты"
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QComboBox, QDateEdit, QPushButton, QTableWidget,
+    QTableWidget,
     QTableWidgetItem, QHeaderView,
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt
 
 from ... import db
 
@@ -85,13 +84,13 @@ class ReportsPage(QWidget):
     def _make_stat_card(self, label: str, value: str, color: str) -> QFrame:
         """Создать карточку со статистикой."""
         card = QFrame()
-        card.setStyleSheet(f"""
-            QFrame {{
+        card.setStyleSheet("""
+            QFrame {
                 background-color: #ffffff;
                 border: 1px solid #e5e7eb;
                 border-radius: 12px;
                 padding: 20px;
-            }}
+            }
         """)
 
         card_layout = QVBoxLayout(card)

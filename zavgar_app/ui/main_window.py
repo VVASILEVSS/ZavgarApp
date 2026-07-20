@@ -159,9 +159,9 @@ class DashboardPage(QWidget):
         v.setStyleSheet(f'color: {accent};')
         vl.addWidget(v)
 
-        l = QLabel(label)
-        l.setObjectName('statLabel')
-        vl.addWidget(l)
+        label_widget = QLabel(label)
+        label_widget.setObjectName('statLabel')
+        vl.addWidget(label_widget)
 
         return card
 

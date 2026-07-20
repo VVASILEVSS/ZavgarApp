@@ -6,8 +6,7 @@ from datetime import datetime, date
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QDialog, QFormLayout,
-    QTimeEdit, QComboBox, QDoubleSpinBox, QTextEdit, QMessageBox, QSpinBox,
-    QMenu
+    QComboBox, QTextEdit, QMessageBox, QMenu
 )
 from PySide6.QtCore import Qt, QDate, QTime
 from PySide6.QtGui import QColor, QAction
@@ -565,8 +564,6 @@ class TimesheetsPage(QWidget):
 
     def _print_selected(self):
         """Печать выбранных записей табеля."""
-        from PySide6.QtPrintSupport import QPrinter, QPrintDialog
-        from PySide6.QtGui import QTextDocument
 
         ids = self._get_selected_timesheet_ids()
         if not ids:

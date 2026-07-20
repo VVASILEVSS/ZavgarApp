@@ -6,8 +6,8 @@ from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QDialog, QFormLayout,
-    QTimeEdit, QComboBox, QSpinBox, QLineEdit, QTextEdit, QMessageBox,
-    QMenu, QAbstractSpinBox
+    QComboBox, QLineEdit, QTextEdit, QMessageBox,
+    QMenu
 )
 from PySide6.QtCore import Qt, QDate, QTime
 from zavgar_app.utils.column_settings import save_column_widths, restore_column_widths
@@ -258,7 +258,6 @@ class TripLogsPage(QWidget):
         layout.addWidget(self.table)
         
         # Восстановить ширины столбцов
-        from zavgar_app.utils.column_settings import restore_column_widths
         restore_column_widths(self.table, "trip_logs")
 
         self._update_toolbar()
@@ -266,7 +265,6 @@ class TripLogsPage(QWidget):
     
     def _on_column_resized(self, col, old_width, new_width):
         """Сохранить ширину столбца при изменении."""
-        from zavgar_app.utils.column_settings import save_column_widths
         save_column_widths(self.table, "trip_logs")
 
     def refresh(self):

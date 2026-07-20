@@ -22,10 +22,10 @@ from PySide6.QtWidgets import (
 )
 from zavgar_app.ui.widgets.triangle_spinbox import TriangleDateEdit
 from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QColor, QAction
+from PySide6.QtGui import QColor
 
 from zavgar_app import db
-from zavgar_app.models import Part, PartTransaction, Vehicle, Driver
+from zavgar_app.models import PartTransaction
 
 
 def _ensure_tables(conn: sqlite3.Connection):
@@ -725,8 +725,6 @@ class WriteOffPage(QWidget):
 
         drivers_list = db.list_drivers(self.conn)
         vehicles_list = db.list_vehicles(self.conn)
-        drivers = {d.id: d.fio for d in drivers_list}
-        vehicles = {v.id: f"{v.marka} {v.model} ({v.gosnomer})" for v in vehicles_list}
         items = self._load_act_items(act_id)
 
         dialog = QDialog(self)

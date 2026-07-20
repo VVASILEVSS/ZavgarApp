@@ -1,7 +1,7 @@
 """
 Кастомные виджеты с треугольными стрелками вместо стандартных кнопок
 """
-from PySide6.QtWidgets import QTimeEdit, QSpinBox, QDoubleSpinBox, QDateEdit, QToolButton, QHBoxLayout, QWidget, QDialog, QVBoxLayout, QPushButton, QLabel, QCalendarWidget, QDialog, QVBoxLayout, QPushButton, QLabel
+from PySide6.QtWidgets import QTimeEdit, QSpinBox, QDateEdit, QToolButton, QHBoxLayout, QWidget, QCalendarWidget, QDialog, QVBoxLayout, QPushButton
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter, QPolygon
 from PySide6.QtCore import QPoint
